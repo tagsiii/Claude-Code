@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Navy QOL Assistant</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="header-logo">
+                <div class="anchor-icon">⚓</div>
+                <div>
+                    <h1>Navy QOL Assistant</h1>
+                    <p class="subtitle">Fleet &amp; Family | Navy HR | Quality of Life Programs</p>
+                </div>
+            </div>
+            <button class="upload-btn" id="uploadToggle" title="Upload Publication">
+                &#x2B06; Upload Document
+            </button>
+        </header>
+
+        <!-- Upload Panel (hidden by default) -->
+        <div class="upload-panel" id="uploadPanel">
+            <form id="uploadForm">
+                <h3>Add a Navy Publication to the Knowledge Base</h3>
+                <p>Upload a <strong>.txt</strong> or <strong>.json</strong> file to expand the chatbot's knowledge.</p>
+                <div class="form-row">
+                    <label for="fileInput">File:</label>
+                    <input type="file" id="fileInput" name="file" accept=".txt,.json" required>
+                </div>
+                <div class="form-row">
+                    <label for="sourceInput">Source/Reference:</label>
+                    <input type="text" id="sourceInput" name="source" placeholder="e.g., OPNAVINST 1234.5A">
+                </div>
+                <div class="form-row">
+                    <label for="categoryInput">Category:</label>
+                    <input type="text" id="categoryInput" name="category" placeholder="e.g., Leave Policy">
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn-primary">Upload &amp; Ingest</button>
+                    <button type="button" class="btn-secondary" id="uploadCancel">Cancel</button>
+                </div>
+                <div id="uploadStatus" class="upload-status"></div>
+            </form>
+        </div>
+
+        <!-- Chat Area -->
+        <main class="chat-area" id="chatArea">
+            <!-- Messages will be inserted here -->
+        </main>
+
+        <!-- Input Area -->
+        <footer class="input-area">
+            <form id="chatForm" autocomplete="off">
+                <input
+                    type="text"
+                    id="userInput"
+                    placeholder="Ask about Navy QOL programs (e.g., BAH, TRICARE, leave, childcare)..."
+                    maxlength="1000"
+                    autofocus
+                >
+                <button type="submit" id="sendBtn">Send</button>
+            </form>
+            <p class="disclaimer">
+                This tool provides general information from Navy publications.
+                Always verify with your command or official sources for your specific situation.
+            </p>
+        </footer>
+    </div>
+
+    <script src="/static/js/chat.js"></script>
+</body>
+</html>

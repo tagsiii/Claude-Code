@@ -1,0 +1,26 @@
+[
+  {
+    "id": "qr-001",
+    "source": "Quick Reference",
+    "category": "Emergency Contacts",
+    "title": "Key Phone Numbers and Resources",
+    "content": "Important phone numbers for Navy quality of life services: Military Crisis Line: 988 (press 1) or text 838255. Military OneSource: 1-800-342-9647 (24/7). Safe Helpline (Sexual Assault): 1-877-995-5247 or safehelpline.org. National Domestic Violence Hotline: 1-800-799-7233. TRICARE Nurse Advice Line: 1-800-874-2273. TRICARE Information: 1-800-444-5445. MyNavy Career Center: 1-833-330-MNCC (6622). Navy-Marine Corps Relief Society: 1-800-654-8364. Veterans Crisis Line: 988 (press 1). MilitaryChildCare.com for childcare requests. MyNavy HR website: www.mynavyhr.navy.mil. Navy COOL: www.cool.osd.mil/navy.",
+    "tags": ["phone numbers", "contacts", "emergency", "hotline", "resources", "helpline"]
+  },
+  {
+    "id": "qr-002",
+    "source": "Quick Reference",
+    "category": "Financial Assistance",
+    "title": "Emergency Financial Assistance",
+    "content": "Emergency financial assistance for Sailors and families: Navy-Marine Corps Relief Society (NMCRS) provides interest-free loans and grants for: Emergency travel, funeral expenses, food and shelter, medical/dental bills, disaster relief, and essential vehicle repair. Command can issue emergency travel advances. The Armed Forces Relief Trust provides additional financial support. Service members experiencing financial hardship should contact their Command Financial Specialist (CFS) or visit FFSC for financial counseling. Navy Federal Credit Union and other military banks offer military-specific financial products. Military Saves campaign promotes financial readiness. AER (Army Emergency Relief) may assist Navy members when no NMCRS office is available.",
+    "tags": ["emergency financial", "nmcrs", "relief society", "loans", "grants", "financial hardship"]
+  },
+  {
+    "id": "qr-003",
+    "source": "Quick Reference",
+    "category": "Programs Overview",
+    "title": "Complete Quality of Life Programs Summary",
+    "content": "Navy Quality of Life programs available to Sailors and families: Fleet and Family Support Centers (FFSC) - counseling, workshops, referrals. Morale Welfare and Recreation (MWR) - fitness, recreation, liberty programs. Child and Youth Programs (CYP) - childcare, youth activities. Navy Legal Service Offices - free legal assistance. Chaplain Services - confidential counseling and spiritual support. Navy-Marine Corps Relief Society - emergency financial aid. TRICARE - comprehensive healthcare. Tuition Assistance / Navy COOL - education and credentialing. Transition Assistance Program (TAP) - separation/retirement preparation. Sexual Assault Prevention and Response (SAPR). Family Advocacy Program (FAP) - domestic/child abuse services. Exceptional Family Member Program (EFMP) - special needs support. Ombudsman Program - command family liaison. Command Resilience Team (CRT) - suicide prevention and readiness.",
+    "tags": ["overview", "programs", "quality of life", "qol", "summary", "all programs"]
+  }
+]

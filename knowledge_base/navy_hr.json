@@ -1,0 +1,122 @@
+[
+  {
+    "id": "hr-001",
+    "source": "MILPERSMAN 1050-010 - Leave",
+    "category": "Leave and Liberty",
+    "title": "Annual Leave Policy",
+    "content": "Active duty Navy personnel earn 2.5 days of leave per month (30 days per year). Members may accumulate up to 60 days of leave. Leave in excess of 60 days is forfeited at the end of the fiscal year (1 October) unless Special Leave Accrual (SLA) has been authorized due to operational necessity. Terminal leave may be taken in conjunction with separation or retirement. Convalescent leave is authorized by medical authority and is not charged against annual leave. Service members must submit leave requests through their chain of command via NSIPS (Navy Standard Integrated Personnel System). Leave may be denied based on operational requirements. Emergency leave may be granted for personal or family emergencies.",
+    "tags": ["leave", "liberty", "annual leave", "terminal leave", "nsips", "emergency leave"]
+  },
+  {
+    "id": "hr-002",
+    "source": "MILPERSMAN 1050-180 / NDAA Provisions",
+    "category": "Leave and Liberty",
+    "title": "Parental Leave and Caregiver Leave",
+    "content": "The military parental leave program provides 12 weeks of non-chargeable parental leave for the birth, adoption, or long-term foster placement of a child. Both the primary and secondary caregiver receive 12 weeks. Parental leave must be taken within one year of the qualifying event and may be taken in multiple increments with command approval. In addition, the Military Parental Leave Program replaced the older Primary/Secondary Caregiver Leave Policy. Service members should coordinate with their command and Personnel Office to request parental leave through NSIPS. This leave is separate from convalescent leave that may be authorized for the birth parent following childbirth.",
+    "tags": ["parental leave", "maternity", "paternity", "caregiver", "adoption", "childbirth"]
+  },
+  {
+    "id": "hr-003",
+    "source": "NAVADMIN / MyNavy HR",
+    "category": "Advancement and Promotion",
+    "title": "Enlisted Advancement System",
+    "content": "Navy enlisted advancement is based on a combination of factors: Navy-wide Advancement Exam (NWAE) score, performance evaluations (Performance Mark Average), awards, education (including Navy COOL certifications), and time in rate. Advancement exams are administered twice yearly (March and September cycles). The Final Multiple Score (FMS) determines advancement eligibility. Key components: Standard Score on exam, Performance Mark Average (PMA), Service in Paygrade (SIPG) points, awards points, education points, and passed-not-advanced (PNA) points. Sailors should review their Enlisted Summary Record (ESR) in NSIPS for accuracy. Commands shall ensure eligible members are identified and prepared for each exam cycle. Profile sheets are available in NSIPS after results are published.",
+    "tags": ["advancement", "promotion", "exam", "nwae", "fms", "pma", "rating"]
+  },
+  {
+    "id": "hr-004",
+    "source": "MILPERSMAN 1306-100 / MyNavy Assignment",
+    "category": "Assignments and Detailing",
+    "title": "Assignment and Detailing Process",
+    "content": "Navy assignments are managed through the MyNavy Assignment (MNA) system. Service members negotiate orders through their detailer at Navy Personnel Command (NPC). The assignment process includes: Projected Rotation Date (PRD), Application via MNA, detailer negotiation, and order writing. Sailors should create a duty preference in MyNavy Assignment and communicate preferences to their detailer 9-12 months before PRD. Types of orders include: PCS (Permanent Change of Station), PCA (Permanent Change of Activity), IPCOT (In-Place Consecutive Overseas Tour), and OPER (Overseas Tour Extension). Sea/Shore rotation is based on the Sea Shore Flow for each rating. Sailors can view available billets and apply through the MNA marketplace.",
+    "tags": ["assignment", "detailing", "pcs", "orders", "mna", "prd", "sea shore flow"]
+  },
+  {
+    "id": "hr-005",
+    "source": "OPNAVINST 1160.8B - Selective Reenlistment Bonus",
+    "category": "Retention and Reenlistment",
+    "title": "Reenlistment and Selective Reenlistment Bonus (SRB)",
+    "content": "Selective Reenlistment Bonus (SRB) is an incentive paid to members who reenlist in critical ratings/NECs. SRB levels are published via NAVADMIN messages and updated regularly. SRB is calculated as: Monthly base pay × SRB award level × years of additional obligated service (up to a maximum). Zones: Zone A (17 months to 6 years of service), Zone B (6-10 years), Zone C (10-14 years). Service members must be recommended for reenlistment by their commanding officer. Reenlistment requests are submitted through NSIPS. Career Waypoints (C-WAY) is the system used to manage reenlistment and conversion quotas. Sailors must receive C-WAY approval before reenlisting. PERFORM to Serve (PTS) has been replaced by Career Waypoints.",
+    "tags": ["reenlistment", "srb", "bonus", "c-way", "retention", "career waypoints"]
+  },
+  {
+    "id": "hr-006",
+    "source": "OPNAVINST 1500.76 / Navy COOL",
+    "category": "Education and Training",
+    "title": "Navy Tuition Assistance and Education Benefits",
+    "content": "Navy Tuition Assistance (TA) pays up to $250 per semester hour credit, with an annual cap of $4,500. TA is available for courses leading to a degree at accredited institutions. Service members must be on active duty and have commanding officer approval. The Post-9/11 GI Bill provides up to 36 months of education benefits after service. Navy COOL (Credentialing Opportunities On-Line) funds credentialing exams and licenses related to military occupations. United Services Military Apprenticeship Program (USMAP) allows service members to earn Department of Labor apprenticeship certificates. Navy College Program for Afloat College Education (NCPACE) brings college courses to deployed sailors. Service members can access MyNavy Education portal for TA applications and education planning.",
+    "tags": ["tuition assistance", "education", "gi bill", "navy cool", "usmap", "ncpace", "college"]
+  },
+  {
+    "id": "hr-007",
+    "source": "TRICARE / OPNAVINST 6000 series",
+    "category": "Healthcare Benefits",
+    "title": "TRICARE Health Benefits",
+    "content": "Active duty members receive healthcare at military treatment facilities (MTFs) at no cost through TRICARE Prime. Dependents are automatically enrolled in TRICARE Prime or may select TRICARE Select. Key TRICARE information: TRICARE Prime has no enrollment fee for active duty families, no copays for active duty members, and low copays for dependents at network providers. TRICARE covers medical, dental (via TRICARE Dental Program/FEDVIP), pharmacy, behavioral health, and specialty care. The TRICARE Nurse Advice Line (1-800-874-2273) provides 24/7 health guidance. Active duty dental care is provided at military dental clinics. Family members can enroll in the TRICARE Dental Program through beneficiary web enrollment. TRICARE Young Adult allows dependent children to remain covered until age 26.",
+    "tags": ["tricare", "healthcare", "dental", "medical", "pharmacy", "dependents", "insurance"]
+  },
+  {
+    "id": "hr-008",
+    "source": "MILPERSMAN 1300-308 / OPNAVINST 1740.4E",
+    "category": "Housing",
+    "title": "Military Housing and BAH",
+    "content": "Basic Allowance for Housing (BAH) is a monthly payment to offset housing costs for members not living in government quarters. BAH rates are based on: Pay grade, dependency status, and duty station ZIP code. BAH is recalculated annually. Types of housing: Government family housing (PPV - Public Private Venture), barracks/unaccompanied housing, and civilian housing with BAH. OHA (Overseas Housing Allowance) is paid for members stationed overseas. Housing referral offices at installations help locate off-base housing. Service members residing in government quarters typically forfeit BAH. Geographical bachelors (members whose dependents reside elsewhere) may be entitled to BAH at the dependent's location. Move-in housing allowances may be available for overseas assignments.",
+    "tags": ["bah", "housing", "barracks", "quarters", "oha", "ppv", "allowance"]
+  },
+  {
+    "id": "hr-009",
+    "source": "NAVADMIN / MyNavy HR",
+    "category": "Evaluations and Fitness Reports",
+    "title": "Performance Evaluation System",
+    "content": "The Navy performance evaluation system includes Enlisted Evaluations (EVAL - NAVPERS 1616/27) and Officer Fitness Reports (FITREP - NAVPERS 1610/2). Evaluation periods: E1-E6 evaluations are due 15 November (regular periodic), E7-E9 are due 15 September. Reporting seniors must ensure evaluations are timely, accurate, and complete. Trait grades range from 1.0 to 5.0. The Performance Mark Average (PMA) directly impacts advancement eligibility. Evaluation continuity is critical - gaps must be explained. Special evaluations are required for: Transfer, frocking, reduction in rate, and disciplinary action. Members should review their evaluations in OMPF (Official Military Personnel File) via BOL (BUPERS Online) for accuracy. Commands must conduct mid-term counseling to set expectations.",
+    "tags": ["evaluation", "fitrep", "eval", "performance", "pma", "ranking", "counseling"]
+  },
+  {
+    "id": "hr-010",
+    "source": "OPNAVINST 1700.10M - Morale Welfare and Recreation",
+    "category": "Morale Welfare and Recreation (MWR)",
+    "title": "MWR Programs and Services",
+    "content": "Navy Morale, Welfare, and Recreation (MWR) programs support quality of life for service members, retirees, and families through fitness, recreation, and leisure activities. MWR categories include: Fitness centers and aquatic facilities, Liberty programs (for single/unaccompanied Sailors), Information Tickets and Travel (ITT) offices for discounted entertainment and travel, outdoor recreation equipment rentals, Auto Skills Centers, bowling centers, golf courses, movie theaters, marinas, and community recreation programs. Liberty programs provide organized activities for junior single Sailors including trips, gaming, and social events. MWR facilities are funded through a combination of appropriated funds and non-appropriated funds (revenue-generated). Community recreation offers classes, youth programs, and special events. Child and Youth Programs (CYP) include Child Development Centers (CDC), School Age Care (SAC), Youth Programs, and Child Development Homes.",
+    "tags": ["mwr", "recreation", "fitness", "liberty", "child care", "youth programs", "itt"]
+  },
+  {
+    "id": "hr-011",
+    "source": "OPNAVINST 1740.4E / CNIC",
+    "category": "Child and Youth Programs",
+    "title": "Navy Child and Youth Programs (CYP)",
+    "content": "Navy Child and Youth Programs provide quality childcare and youth development services. Programs include: Child Development Centers (CDCs) for ages 6 weeks to 5 years, School-Age Care (SAC) for ages 5-12, Youth Programs for ages 5-18, Child Development Homes (CDH) - licensed in-home care, and resource and referral services. Fees are based on Total Family Income (TFI) using a sliding fee scale. Priority placement is given to dual military and single parents. MilitaryChildCare.com is the centralized request system for childcare. The DoD Fee Assistance program subsidizes costs for civilian childcare when on-base care is unavailable. Youth sponsorship programs help military children adjust when relocating. Teen programs and youth sports leagues are available at most installations.",
+    "tags": ["childcare", "cdc", "youth", "sac", "child development", "daycare", "kids"]
+  },
+  {
+    "id": "hr-012",
+    "source": "DoDI 1015.10 / Navy Legal Services",
+    "category": "Legal Assistance",
+    "title": "Navy Legal Assistance Services",
+    "content": "Navy Legal Service Offices (NLSOs) and Region Legal Service Offices (RLSOs) provide free legal assistance to active duty members, dependents, and retirees. Services include: Wills and powers of attorney, Servicemembers Civil Relief Act (SCRA) protections, consumer law issues, landlord-tenant disputes, family law guidance (divorce, custody, support), tax assistance (VITA program during tax season), immigration assistance for dependent family members, and notary services. The SCRA provides protections including: Interest rate caps on pre-service debt, protection from eviction, termination of residential and auto leases, and stay of civil court proceedings. Service members should consult legal assistance before signing leases, contracts, or making major financial decisions. Legal assistance appointments can be made through the nearest NLSO.",
+    "tags": ["legal", "wills", "scra", "power of attorney", "nlso", "family law", "tax"]
+  },
+  {
+    "id": "hr-013",
+    "source": "OPNAVINST 1720.4B - Suicide Prevention",
+    "category": "Mental Health and Wellness",
+    "title": "Suicide Prevention and Mental Health Resources",
+    "content": "The Navy Suicide Prevention Program promotes a culture of help-seeking and peer support. Resources include: Military Crisis Line (988, press 1, or text 838255), Military OneSource (1-800-342-9647, available 24/7), Chaplain services (100% confidential, privileged communication), FFSC non-medical counseling, Embedded Mental Health providers at operational commands, Psychological Health Outreach Program, and Command resilience programs. ACT (Ask, Care, Treat) is the Navy's suicide intervention model - all hands are trained to recognize warning signs and take action. Command leaders shall conduct annual suicide prevention training. Seeking mental health help does not automatically affect security clearances. The Navy's Culture of Excellence promotes psychological health as part of overall readiness. Operational Stress Control (OSC) programs help members manage combat and operational stress.",
+    "tags": ["suicide prevention", "mental health", "crisis", "988", "chaplain", "resilience", "osc"]
+  },
+  {
+    "id": "hr-014",
+    "source": "OPNAVINST 5350.4E - Drug and Alcohol Abuse",
+    "category": "Substance Abuse Programs",
+    "title": "Substance Abuse Rehabilitation Program (SARP)",
+    "content": "The Substance Abuse Rehabilitation Program (SARP) provides screening, education, and treatment for alcohol and drug abuse. Self-referral is encouraged and provides limited protections. SARP services include: Screening and assessment, outpatient and intensive outpatient treatment, residential treatment programs, aftercare and continuing care, Command Drug and Alcohol Program Advisor (DAPA) education, and urinalysis program support. The Navy maintains a zero-tolerance policy for drug abuse. Self-referral before detection provides the best opportunity for treatment and continued service. DAPAs serve as the command-level resource for substance abuse education and referral. Commands conduct random urinalysis testing per OPNAVINST 5350.4E. Sailors identified through command referral or positive urinalysis face administrative and possible UCMJ action.",
+    "tags": ["substance abuse", "sarp", "alcohol", "drug", "dapa", "urinalysis", "treatment"]
+  },
+  {
+    "id": "hr-015",
+    "source": "SECNAVINST 1770.3B / Religious Ministries",
+    "category": "Chaplain Services",
+    "title": "Navy Chaplain and Religious Ministry Services",
+    "content": "Navy Chaplains provide religious ministry, pastoral care, and counseling to all service members regardless of faith. All communication with a chaplain is privileged and confidential - chaplains cannot be compelled to reveal communications. Services include: Worship services and religious education, marriage enrichment and pre-marital counseling, grief and bereavement support, ethical and moral guidance, crisis intervention, family support during deployment, memorial services, and spiritual fitness. Chaplains are available on ships, at installations, and with operational units. Religious Program Specialists (RP) support the chaplain program. Chaplains also serve as advisors to commanders on religion, morale, and ethics. The Chaplain Religious Enrichment Development Operation (CREDO) offers personal growth retreats and marriage enrichment retreats at no cost.",
+    "tags": ["chaplain", "religious", "spiritual", "confidential", "credo", "marriage enrichment", "pastoral"]
+  }
+]

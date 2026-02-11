@@ -1,0 +1,82 @@
+[
+  {
+    "id": "ffsc-001",
+    "source": "OPNAVINST 1754.1C - Fleet and Family Support Program",
+    "category": "Fleet and Family Support Center (FFSC)",
+    "title": "Fleet and Family Support Center Overview",
+    "content": "Fleet and Family Support Centers (FFSCs) provide information, referral, education, and counseling services to active duty members, retirees, and their families. Services are available at no cost and include relocation assistance, personal financial management, family employment readiness, life skills education, clinical counseling, family advocacy, exceptional family member support, deployment support, transition assistance, and sexual assault prevention and response. FFSCs operate at major Navy installations worldwide under Commander, Navy Installations Command (CNIC). Per OPNAVINST 1754.1C, commanding officers shall ensure service members and families are informed about FFSC services.",
+    "tags": ["ffsc", "family support", "counseling", "relocation", "financial", "employment"]
+  },
+  {
+    "id": "ffsc-002",
+    "source": "OPNAVINST 1754.1C",
+    "category": "Relocation Assistance",
+    "title": "Relocation Assistance Program (RAP)",
+    "content": "The Relocation Assistance Program provides pre-departure and post-arrival relocation counseling, area orientation, and settling-in services. Services include: Sponsorship training for commands, pre-departure counseling covering entitlements and moving procedures, Welcome Aboard programs at gaining commands, lending locker programs (household items for temporary use), information on housing, schools, childcare, and local community resources. Service members should contact the FFSC at their current or gaining installation at least 60 days before a PCS move. The program also supports overseas screening and helps families prepare for OCONUS assignments.",
+    "tags": ["relocation", "pcs", "moving", "oconus", "sponsorship"]
+  },
+  {
+    "id": "ffsc-003",
+    "source": "OPNAVINST 1740.3C - Command Financial Specialist Program",
+    "category": "Personal Financial Management",
+    "title": "Personal Financial Management Program",
+    "content": "The Personal Financial Management (PFM) program provides financial education, counseling, and information to help service members achieve financial readiness. Services include: Budget and spending plan development, debt management and reduction strategies, savings and investment education, consumer awareness and protection, car buying and home buying workshops, Thrift Savings Plan (TSP) education, financial planning for deployment, and credit report review assistance. Each command shall designate a Command Financial Specialist (CFS) per OPNAVINST 1740.3C. The CFS serves as the command-level resource for financial education and individual counseling referrals.",
+    "tags": ["financial", "budget", "debt", "tsp", "cfs", "money", "savings"]
+  },
+  {
+    "id": "ffsc-004",
+    "source": "OPNAVINST 1754.1C",
+    "category": "Family Employment Readiness",
+    "title": "Spouse Employment Assistance Program",
+    "content": "The Family Employment Readiness Program assists military spouses and family members with career exploration, job search strategies, resume writing, interview preparation, and federal employment application assistance. Services include: Individual career counseling, resume and cover letter workshops, job search strategy sessions, federal employment (USAJobs) application assistance, networking and job fair events, portable career guidance for frequent relocations, education and training referrals, and Military Spouse Preference (MSP) program guidance. The program supports the Military Spouse Employment Partnership (MSEP) which connects spouses with partner employers committed to hiring military spouses.",
+    "tags": ["spouse employment", "career", "resume", "job search", "msep"]
+  },
+  {
+    "id": "ffsc-005",
+    "source": "OPNAVINST 1754.5B - Family Advocacy Program",
+    "category": "Family Advocacy Program (FAP)",
+    "title": "Family Advocacy Program",
+    "content": "The Family Advocacy Program (FAP) addresses domestic abuse and child abuse in military families through prevention, victim advocacy, and intervention. FAP provides: 24/7 domestic abuse victim advocacy, safety planning, clinical assessment and treatment, anger management and stress management programs, New Parent Support Program (home visiting for expectant and new parents), child abuse prevention education, and command consultation. Reports of domestic or child abuse can be made to FAP, the National Domestic Violence Hotline (1-800-799-7233), or Military OneSource (1-800-342-9647). Restricted and unrestricted reporting options are available for spouse/intimate partner abuse.",
+    "tags": ["family advocacy", "domestic abuse", "child abuse", "victim advocacy", "fap", "safety"]
+  },
+  {
+    "id": "ffsc-006",
+    "source": "OPNAVINST 1754.1C / OPNAVINST 1754.2E",
+    "category": "Exceptional Family Member Program (EFMP)",
+    "title": "Exceptional Family Member Program",
+    "content": "The Exceptional Family Member Program (EFMP) is a mandatory enrollment program that works with other military and civilian agencies to provide comprehensive, coordinated community support, housing, educational, medical, and personnel services to families with special needs. EFMP has three components: Identification and Enrollment (medical), Assignment Coordination (detailing), and Family Support (FFSC). Service members must enroll family members with special medical or educational needs. EFMP ensures assignments are made to locations where family members can receive needed services. The FFSC EFMP liaison provides information, referral, non-clinical case management, community outreach, and support groups.",
+    "tags": ["efmp", "special needs", "disability", "enrollment", "assignment"]
+  },
+  {
+    "id": "ffsc-007",
+    "source": "OPNAVINST 1754.1C",
+    "category": "Deployment Support",
+    "title": "Deployment Support Program",
+    "content": "The Deployment Support Program assists service members and families throughout all phases of deployment: pre-deployment, deployment, and post-deployment/reunion. Services include: Pre-deployment briefs covering legal, financial, and family readiness planning, Ombudsman training and support, Family Readiness Group (FRG) guidance, deployment stress management workshops, return and reunion briefs addressing reintegration challenges, individual and family counseling, and referrals for children coping with deployment. The program supports all types of separations including deployments, TAD/TDY, and unaccompanied tours. Commands shall conduct pre-deployment briefs NLT 30 days before deployment.",
+    "tags": ["deployment", "reunion", "frg", "ombudsman", "reintegration", "separation"]
+  },
+  {
+    "id": "ffsc-008",
+    "source": "OPNAVINST 1900.2D - Transition Assistance Program",
+    "category": "Transition Assistance",
+    "title": "Transition Assistance Program (TAP)",
+    "content": "The Transition Assistance Program (TAP), also known as Transition GPS (Goals, Plans, Success), is a mandatory program for all separating and retiring service members. TAP provides: Pre-separation/transition counseling (Individual Transition Plan), Department of Labor Employment Workshop (DOLEW), VA Benefits Briefings, financial planning for transition, resume writing and interview skills, Capstone event (verification of career readiness standards), and additional 2-day tracks in Education, Career Technical Training, or Entrepreneurship. Service members must begin TAP no later than 365 days before separation (24 months for retirees). Warm handover referrals connect transitioning members to VA and community resources.",
+    "tags": ["transition", "tap", "separation", "retirement", "va benefits", "career readiness"]
+  },
+  {
+    "id": "ffsc-009",
+    "source": "OPNAVINST 1752.1C - Sexual Assault Prevention and Response",
+    "category": "Sexual Assault Prevention and Response (SAPR)",
+    "title": "Sexual Assault Prevention and Response Program",
+    "content": "The Sexual Assault Prevention and Response (SAPR) program provides comprehensive services for sexual assault victims and prevention education for all hands. Services include: 24/7 Sexual Assault Response Coordinator (SARC) support, Victim Advocacy, medical care referrals, legal referrals, counseling referrals, Restricted and Unrestricted reporting options, Expedited Transfer requests, and Military Protective Orders. The Safe Helpline (1-877-995-5247 or safehelpline.org) provides anonymous 24/7 crisis support. Annual SAPR training is mandatory for all service members. Victims may request an Expedited Transfer to a new command to support their recovery. Restricted reporting allows victims to receive support without triggering an official investigation.",
+    "tags": ["sapr", "sexual assault", "victim advocacy", "sarc", "safe helpline", "reporting"]
+  },
+  {
+    "id": "ffsc-010",
+    "source": "OPNAVINST 1754.1C",
+    "category": "Clinical Counseling",
+    "title": "Non-Medical Clinical Counseling Services",
+    "content": "FFSCs provide short-term, solution-focused, non-medical clinical counseling at no cost. Services are confidential within limits of law and regulation. Counseling areas include: Relationship and marital issues, parent-child communication, stress management, grief and loss, adjustment to military life, deployment and reunion challenges, anger management, and life skills. FFSC counseling does not become part of the service member's military or medical record. For issues requiring longer-term or medical treatment, referrals are made to military treatment facilities, TRICARE network providers, or Military OneSource (which provides up to 12 free non-medical counseling sessions). Counseling is available to active duty, dependents, and retirees.",
+    "tags": ["counseling", "mental health", "stress", "relationship", "confidential", "military onesource"]
+  }
+]
