@@ -3,7 +3,7 @@ export interface UserProfile {
   user_id: string;
   full_name: string;
   bio: string | null;
-  current_role: string | null;
+  job_title: string | null;
   company: string | null;
   industries: string[];
   goals: string[];

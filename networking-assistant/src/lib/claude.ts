@@ -61,7 +61,7 @@ Always respond with valid JSON matching the requested schema. Be specific and ac
 
 ## My Profile
 - Name: ${userProfile.full_name}
-- Role: ${userProfile.current_role} at ${userProfile.company}
+- Role: ${userProfile.job_title} at ${userProfile.company}
 - Goals: ${userProfile.goals.join(", ")}
 - What I offer: ${userProfile.what_i_offer || "Not specified"}
 - What I need: ${userProfile.what_i_need || "Not specified"}
@@ -185,7 +185,7 @@ Write a comprehensive but concise summary covering:
 
 My profile:
 - Name: ${userProfile.full_name}
-- Role: ${userProfile.current_role} at ${userProfile.company}
+- Role: ${userProfile.job_title} at ${userProfile.company}
 - Goals: ${userProfile.goals.join(", ")}
 - What I offer: ${userProfile.what_i_offer || "Not specified"}
 - What I need: ${userProfile.what_i_need || "Not specified"}

@@ -11,7 +11,7 @@ export default function SettingsPage() {
   const [form, setForm] = useState({
     full_name: "",
     bio: "",
-    current_role: "",
+    job_title: "",
     company: "",
     industries: "",
     goals: "",
@@ -37,7 +37,7 @@ export default function SettingsPage() {
           setForm({
             full_name: data.full_name || "",
             bio: data.bio || "",
-            current_role: data.current_role || "",
+            job_title: data.job_title || "",
             company: data.company || "",
             industries: (data.industries || []).join(", "),
             goals: (data.goals || []).join("\n"),
@@ -123,9 +123,9 @@ export default function SettingsPage() {
                   Current Role
                 </label>
                 <Input
-                  value={form.current_role}
+                  value={form.job_title}
                   onChange={(e) =>
-                    setForm({ ...form, current_role: e.target.value })
+                    setForm({ ...form, job_title: e.target.value })
                   }
                   placeholder="e.g., VP of Engineering"
                 />

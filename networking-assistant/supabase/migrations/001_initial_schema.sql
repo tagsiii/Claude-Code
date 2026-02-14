@@ -4,7 +4,7 @@ create table user_profile (
   user_id uuid not null unique,
   full_name text not null,
   bio text,
-  current_role text,
+  job_title text,
   company text,
   industries text[] default '{}',
   goals text[] default '{}',
