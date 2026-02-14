@@ -1,57 +1,66 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { getDb, LOCAL_USER_ID, newId, toJsonArray, transformProfile } from "@/lib/db";
 
 export async function GET() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const db = getDb();
+  const row = db
+    .prepare("SELECT * FROM user_profile WHERE user_id = ?")
+    .get(LOCAL_USER_ID) as Record<string, unknown> | undefined;
 
-  const { data, error } = await supabase
-    .from("user_profile")
-    .select("*")
-    .eq("user_id", user.id)
-    .single();
-
-  if (error && error.code !== "PGRST116") {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-  return NextResponse.json(data);
+  return NextResponse.json(row ? transformProfile(row) : null);
 }
 
 export async function POST(request: NextRequest) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
+  const db = getDb();
   const body = await request.json();
 
-  // Check if profile exists
-  const { data: existing } = await supabase
-    .from("user_profile")
-    .select("id")
-    .eq("user_id", user.id)
-    .single();
+  const existing = db
+    .prepare("SELECT id FROM user_profile WHERE user_id = ?")
+    .get(LOCAL_USER_ID) as { id: string } | undefined;
 
   if (existing) {
-    const { data, error } = await supabase
-      .from("user_profile")
-      .update(body)
-      .eq("user_id", user.id)
-      .select()
-      .single();
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    return NextResponse.json(data);
+    db.prepare(`
+      UPDATE user_profile SET
+        full_name = ?, bio = ?, job_title = ?, company = ?,
+        industries = ?, goals = ?,
+        what_i_offer = ?, what_i_need = ?, networking_style = ?,
+        updated_at = datetime('now')
+      WHERE user_id = ?
+    `).run(
+      body.full_name,
+      body.bio || null,
+      body.job_title || null,
+      body.company || null,
+      toJsonArray(body.industries),
+      toJsonArray(body.goals),
+      body.what_i_offer || null,
+      body.what_i_need || null,
+      body.networking_style || null,
+      LOCAL_USER_ID
+    );
   } else {
-    const { data, error } = await supabase
-      .from("user_profile")
-      .insert({ ...body, user_id: user.id })
-      .select()
-      .single();
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    return NextResponse.json(data);
+    const id = newId();
+    db.prepare(`
+      INSERT INTO user_profile (id, user_id, full_name, bio, job_title, company, industries, goals, what_i_offer, what_i_need, networking_style)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      id,
+      LOCAL_USER_ID,
+      body.full_name,
+      body.bio || null,
+      body.job_title || null,
+      body.company || null,
+      toJsonArray(body.industries),
+      toJsonArray(body.goals),
+      body.what_i_offer || null,
+      body.what_i_need || null,
+      body.networking_style || null
+    );
   }
+
+  const row = db
+    .prepare("SELECT * FROM user_profile WHERE user_id = ?")
+    .get(LOCAL_USER_ID) as Record<string, unknown>;
+
+  return NextResponse.json(transformProfile(row));
 }

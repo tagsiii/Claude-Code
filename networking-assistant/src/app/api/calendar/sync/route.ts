@@ -1,20 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-
-// Google Calendar sync endpoint
-// This route fetches upcoming calendar events and matches them against known contacts
-// to auto-trigger call prep generation.
-//
-// Usage: POST /api/calendar/sync with a Google OAuth access token
-// In production, you'd store the refresh token in Supabase and auto-refresh.
+import { getDb, LOCAL_USER_ID } from "@/lib/db";
 
 export async function POST(request: NextRequest) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
   const { access_token } = await request.json();
   if (!access_token) {
     return NextResponse.json(
@@ -23,7 +10,6 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Fetch upcoming events from Google Calendar
   const now = new Date().toISOString();
   const oneWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
 
@@ -49,13 +35,12 @@ export async function POST(request: NextRequest) {
   const calData = await calRes.json();
   const events = calData.items || [];
 
-  // Fetch user's contacts for matching
-  const { data: contacts } = await supabase
-    .from("contacts")
-    .select("id, full_name, email")
-    .eq("user_id", user.id);
+  const db = getDb();
+  const contacts = db
+    .prepare("SELECT id, full_name, email FROM contacts WHERE user_id = ?")
+    .all(LOCAL_USER_ID) as { id: string; full_name: string; email: string | null }[];
 
-  if (!contacts) return NextResponse.json({ matched: [] });
+  if (contacts.length === 0) return NextResponse.json({ matched: [] });
 
   const matched = [];
 
@@ -73,12 +58,9 @@ export async function POST(request: NextRequest) {
       );
 
       if (contact) {
-        // Check if we already have a prep for this event
-        const { data: existingPrep } = await supabase
-          .from("call_preps")
-          .select("id")
-          .eq("calendar_event_id", event.id)
-          .single();
+        const existingPrep = db
+          .prepare("SELECT id FROM call_preps WHERE calendar_event_id = ?")
+          .get(event.id);
 
         if (!existingPrep) {
           matched.push({

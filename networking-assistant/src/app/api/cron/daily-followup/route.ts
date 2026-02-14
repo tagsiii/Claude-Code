@@ -1,89 +1,83 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServiceClient } from "@/lib/supabase/server";
-import { generateFollowUps } from "@/lib/claude";
+import { getDb, LOCAL_USER_ID, newId, transformContact, transformProfile, transformInteraction } from "@/lib/db";
 
-// Vercel Cron or manual trigger
-// vercel.json: { "crons": [{ "path": "/api/cron/daily-followup", "schedule": "0 8 * * *" }] }
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get("authorization");
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const supabase = createServiceClient();
+  const db = getDb();
 
-  // Get all users with profiles
-  const { data: profiles } = await supabase.from("user_profile").select("*");
-  if (!profiles || profiles.length === 0) {
-    return NextResponse.json({ message: "No users found" });
+  const profile = db
+    .prepare("SELECT * FROM user_profile WHERE user_id = ?")
+    .get(LOCAL_USER_ID) as Record<string, unknown> | undefined;
+
+  if (!profile) {
+    return NextResponse.json({ message: "No user profile found" });
   }
 
-  const results = [];
+  try {
+    const contacts = db
+      .prepare(
+        "SELECT * FROM contacts WHERE user_id = ? AND relationship_tier != 'dormant'"
+      )
+      .all(LOCAL_USER_ID) as Record<string, unknown>[];
 
-  for (const profile of profiles) {
-    try {
-      const { data: contacts } = await supabase
-        .from("contacts")
-        .select("*")
-        .eq("user_id", profile.user_id)
-        .neq("relationship_tier", "dormant");
-
-      if (!contacts || contacts.length === 0) continue;
-
-      // Fetch recent interactions per contact
-      const contactsWithInteractions = await Promise.all(
-        contacts.slice(0, 50).map(async (contact: Record<string, any>) => {
-          const { data } = await supabase
-            .from("interactions")
-            .select("*")
-            .eq("contact_id", contact.id)
-            .order("occurred_at", { ascending: false })
-            .limit(3);
-          return { ...contact, recent_interactions: data || [] };
-        })
-      );
-
-      const recommendations = await generateFollowUps(
-        contactsWithInteractions,
-        profile
-      );
-
-      // Clear old pending, insert new
-      await supabase
-        .from("ai_recommendations")
-        .update({ status: "dismissed" })
-        .eq("user_id", profile.user_id)
-        .eq("type", "follow_up")
-        .eq("status", "pending");
-
-      const toInsert = recommendations.map((rec) => ({
-        user_id: profile.user_id,
-        contact_id: rec.contact_id,
-        type: rec.type,
-        priority: rec.priority,
-        title: `Follow up with ${rec.contact_name}`,
-        description: rec.reason,
-        suggested_message: rec.suggested_message,
-        reasoning: rec.reason,
-        status: "pending" as const,
-        expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-      }));
-
-      if (toInsert.length > 0) {
-        await supabase.from("ai_recommendations").insert(toInsert);
-      }
-
-      results.push({
-        user_id: profile.user_id,
-        recommendations: recommendations.length,
-      });
-    } catch (err) {
-      results.push({
-        user_id: profile.user_id,
-        error: String(err),
-      });
+    if (contacts.length === 0) {
+      return NextResponse.json({ message: "No contacts found" });
     }
-  }
 
-  return NextResponse.json({ results });
+    const contactsWithInteractions = contacts.slice(0, 50).map((contact) => {
+      const interactions = db
+        .prepare(
+          "SELECT * FROM interactions WHERE contact_id = ? ORDER BY occurred_at DESC LIMIT 3"
+        )
+        .all(contact.id as string) as Record<string, unknown>[];
+      return {
+        ...transformContact(contact),
+        recent_interactions: interactions.map(transformInteraction),
+      };
+    });
+
+    const { generateFollowUps } = await import("@/lib/claude");
+    const recommendations = await generateFollowUps(
+      contactsWithInteractions,
+      transformProfile(profile)
+    );
+
+    // Clear old pending follow-ups
+    db.prepare(
+      "UPDATE ai_recommendations SET status = 'dismissed', updated_at = datetime('now') WHERE user_id = ? AND type = 'follow_up' AND status = 'pending'"
+    ).run(LOCAL_USER_ID);
+
+    const insertStmt = db.prepare(`
+      INSERT INTO ai_recommendations (id, user_id, contact_id, type, priority, title, description, suggested_message, reasoning, status, expires_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    for (const rec of recommendations) {
+      insertStmt.run(
+        newId(),
+        LOCAL_USER_ID,
+        rec.contact_id,
+        rec.type || "follow_up",
+        rec.priority,
+        `Follow up with ${rec.contact_name}`,
+        rec.reason,
+        rec.suggested_message || null,
+        rec.reason,
+        "pending",
+        new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+      );
+    }
+
+    return NextResponse.json({
+      results: [{ user_id: LOCAL_USER_ID, recommendations: recommendations.length }],
+    });
+  } catch (err) {
+    return NextResponse.json({
+      results: [{ user_id: LOCAL_USER_ID, error: String(err) }],
+    });
+  }
 }

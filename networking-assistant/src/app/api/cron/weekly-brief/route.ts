@@ -1,57 +1,56 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServiceClient } from "@/lib/supabase/server";
-import { generateWeeklyBrief } from "@/lib/claude";
+import { getDb, LOCAL_USER_ID, newId, transformContact, transformProfile, transformInteraction } from "@/lib/db";
 
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get("authorization");
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const supabase = createServiceClient();
+  const db = getDb();
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
-  const { data: profiles } = await supabase.from("user_profile").select("*");
-  if (!profiles || profiles.length === 0) {
-    return NextResponse.json({ message: "No users found" });
+  const profile = db
+    .prepare("SELECT * FROM user_profile WHERE user_id = ?")
+    .get(LOCAL_USER_ID) as Record<string, unknown> | undefined;
+
+  if (!profile) {
+    return NextResponse.json({ message: "No user profile found" });
   }
 
-  const results = [];
+  try {
+    const contacts = db
+      .prepare("SELECT * FROM contacts WHERE user_id = ?")
+      .all(LOCAL_USER_ID) as Record<string, unknown>[];
 
-  for (const profile of profiles) {
-    try {
-      const [contactsRes, interactionsRes] = await Promise.all([
-        supabase.from("contacts").select("*").eq("user_id", profile.user_id),
-        supabase
-          .from("interactions")
-          .select("*")
-          .eq("user_id", profile.user_id)
-          .gte("occurred_at", sevenDaysAgo)
-          .order("occurred_at", { ascending: false }),
-      ]);
+    const interactions = db
+      .prepare(
+        "SELECT * FROM interactions WHERE user_id = ? AND occurred_at >= ? ORDER BY occurred_at DESC"
+      )
+      .all(LOCAL_USER_ID, sevenDaysAgo) as Record<string, unknown>[];
 
-      const brief = await generateWeeklyBrief(
-        contactsRes.data || [],
-        interactionsRes.data || [],
-        profile
-      );
+    const { generateWeeklyBrief } = await import("@/lib/claude");
+    const brief = await generateWeeklyBrief(
+      contacts.map(transformContact),
+      interactions.map(transformInteraction),
+      transformProfile(profile)
+    );
 
-      // Store as a recommendation
-      await supabase.from("ai_recommendations").insert({
-        user_id: profile.user_id,
-        type: "relationship_alert",
-        priority: 1,
-        title: "Weekly Network Brief",
-        description: brief,
-        status: "pending",
-        expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-      });
+    const id = newId();
+    db.prepare(`
+      INSERT INTO ai_recommendations (id, user_id, type, priority, title, description, status, expires_at)
+      VALUES (?, ?, 'relationship_alert', 1, 'Weekly Network Brief', ?, 'pending', ?)
+    `).run(
+      id,
+      LOCAL_USER_ID,
+      brief,
+      new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+    );
 
-      results.push({ user_id: profile.user_id, status: "ok" });
-    } catch (err) {
-      results.push({ user_id: profile.user_id, error: String(err) });
-    }
+    return NextResponse.json({ results: [{ user_id: LOCAL_USER_ID, status: "ok" }] });
+  } catch (err) {
+    return NextResponse.json({
+      results: [{ user_id: LOCAL_USER_ID, error: String(err) }],
+    });
   }
-
-  return NextResponse.json({ results });
 }

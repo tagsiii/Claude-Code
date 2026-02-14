@@ -1,31 +1,38 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { analyzeNetworkExpansion } from "@/lib/claude";
+import { getDb, LOCAL_USER_ID, transformContact, transformProfile } from "@/lib/db";
 
 export async function POST(request: NextRequest) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
+  const db = getDb();
   const { contact_id } = await request.json();
 
-  const [contactRes, profileRes, allContactsRes] = await Promise.all([
-    supabase.from("contacts").select("*").eq("id", contact_id).single(),
-    supabase.from("user_profile").select("*").eq("user_id", user.id).single(),
-    supabase.from("contacts").select("*").eq("user_id", user.id).neq("id", contact_id),
-  ]);
+  const contact = db
+    .prepare("SELECT * FROM contacts WHERE id = ?")
+    .get(contact_id) as Record<string, unknown> | undefined;
+  const profile = db
+    .prepare("SELECT * FROM user_profile WHERE user_id = ?")
+    .get(LOCAL_USER_ID) as Record<string, unknown> | undefined;
 
-  if (!contactRes.data || !profileRes.data) {
+  if (!contact || !profile) {
     return NextResponse.json({ error: "Contact or profile not found" }, { status: 404 });
   }
 
-  const expansion = await analyzeNetworkExpansion(
-    contactRes.data,
-    allContactsRes.data || [],
-    profileRes.data
-  );
+  const allContacts = db
+    .prepare("SELECT * FROM contacts WHERE user_id = ? AND id != ?")
+    .all(LOCAL_USER_ID, contact_id) as Record<string, unknown>[];
 
-  return NextResponse.json(expansion);
+  try {
+    const { analyzeNetworkExpansion } = await import("@/lib/claude");
+    const expansion = await analyzeNetworkExpansion(
+      transformContact(contact),
+      allContacts.map(transformContact),
+      transformProfile(profile)
+    );
+
+    return NextResponse.json(expansion);
+  } catch (err) {
+    return NextResponse.json(
+      { error: "Network expansion analysis failed", details: String(err) },
+      { status: 500 }
+    );
+  }
 }

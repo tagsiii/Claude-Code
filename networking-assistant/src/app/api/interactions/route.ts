@@ -1,120 +1,126 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { processInteraction, generateContextSummary } from "@/lib/claude";
+import { getDb, LOCAL_USER_ID, newId, toJsonArray, transformInteraction, transformContact, transformProfile } from "@/lib/db";
 
 export async function GET(request: NextRequest) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
+  const db = getDb();
   const contactId = request.nextUrl.searchParams.get("contact_id");
 
-  let query = supabase
-    .from("interactions")
-    .select("*")
-    .eq("user_id", user.id)
-    .order("occurred_at", { ascending: false });
-
+  let rows;
   if (contactId) {
-    query = query.eq("contact_id", contactId);
+    rows = db
+      .prepare(
+        "SELECT * FROM interactions WHERE user_id = ? AND contact_id = ? ORDER BY occurred_at DESC LIMIT 50"
+      )
+      .all(LOCAL_USER_ID, contactId) as Record<string, unknown>[];
+  } else {
+    rows = db
+      .prepare(
+        "SELECT * FROM interactions WHERE user_id = ? ORDER BY occurred_at DESC LIMIT 50"
+      )
+      .all(LOCAL_USER_ID) as Record<string, unknown>[];
   }
 
-  const { data, error } = await query.limit(50);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json(data);
+  return NextResponse.json(rows.map(transformInteraction));
 }
 
 export async function POST(request: NextRequest) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
+  const db = getDb();
   const body = await request.json();
   const { contact_id, interaction_type, raw_notes, occurred_at } = body;
 
-  // Fetch contact and user profile for Claude context
-  const [contactRes, profileRes, historyRes] = await Promise.all([
-    supabase.from("contacts").select("*").eq("id", contact_id).single(),
-    supabase.from("user_profile").select("*").eq("user_id", user.id).single(),
-    supabase
-      .from("interactions")
-      .select("*")
-      .eq("contact_id", contact_id)
-      .order("occurred_at", { ascending: false })
-      .limit(5),
-  ]);
+  const contact = db
+    .prepare("SELECT * FROM contacts WHERE id = ?")
+    .get(contact_id) as Record<string, unknown> | undefined;
+  const profile = db
+    .prepare("SELECT * FROM user_profile WHERE user_id = ?")
+    .get(LOCAL_USER_ID) as Record<string, unknown> | undefined;
 
-  if (!contactRes.data || !profileRes.data) {
+  if (!contact) {
     return NextResponse.json(
-      { error: "Contact or user profile not found" },
+      { error: "Contact not found" },
       { status: 404 }
     );
   }
 
-  // Process through Claude interaction processor
-  let aiResult = null;
-  if (raw_notes) {
+  const history = db
+    .prepare(
+      "SELECT * FROM interactions WHERE contact_id = ? ORDER BY occurred_at DESC LIMIT 5"
+    )
+    .all(contact_id) as Record<string, unknown>[];
+
+  // Try Claude AI processing (gracefully skip if API key not configured)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let aiResult: any = null;
+  if (raw_notes && profile) {
     try {
+      const { processInteraction } = await import("@/lib/claude");
       aiResult = await processInteraction(
         raw_notes,
-        contactRes.data,
-        profileRes.data,
-        historyRes.data || []
+        transformContact(contact),
+        transformProfile(profile),
+        history.map(transformInteraction)
       );
     } catch (err) {
-      console.error("Claude processing failed:", err);
+      console.error("Claude processing skipped:", err);
     }
   }
 
-  // Insert interaction with AI-enriched fields
-  const { data: interaction, error } = await supabase
-    .from("interactions")
-    .insert({
-      user_id: user.id,
-      contact_id,
-      interaction_type,
-      raw_notes,
-      occurred_at: occurred_at || new Date().toISOString(),
-      ai_summary: aiResult?.ai_summary || null,
-      key_topics: aiResult?.key_topics || [],
-      commitments_made: aiResult?.commitments_made || [],
-      follow_up_items: aiResult?.follow_up_items || [],
-      sentiment: aiResult?.sentiment || null,
-      relationship_strength_delta: aiResult?.relationship_strength_delta || 0,
-    })
-    .select()
-    .single();
+  const id = newId();
+  const occurredAtVal = occurred_at || new Date().toISOString();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  db.prepare(`
+    INSERT INTO interactions (id, user_id, contact_id, interaction_type, raw_notes, occurred_at, ai_summary, key_topics, commitments_made, follow_up_items, sentiment, relationship_strength_delta)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    id,
+    LOCAL_USER_ID,
+    contact_id,
+    interaction_type,
+    raw_notes || null,
+    occurredAtVal,
+    (aiResult?.ai_summary as string) || null,
+    toJsonArray(aiResult?.key_topics as string[] | undefined),
+    toJsonArray(aiResult?.commitments_made as string[] | undefined),
+    toJsonArray(aiResult?.follow_up_items as string[] | undefined),
+    (aiResult?.sentiment as string) || null,
+    (aiResult?.relationship_strength_delta as number) || 0
+  );
 
   // Update contact's last_interaction_at
-  await supabase
-    .from("contacts")
-    .update({ last_interaction_at: occurred_at || new Date().toISOString() })
-    .eq("id", contact_id);
+  db.prepare(
+    "UPDATE contacts SET last_interaction_at = ?, updated_at = datetime('now') WHERE id = ?"
+  ).run(occurredAtVal, contact_id);
 
-  // Regenerate context summary in the background
-  if (raw_notes) {
-    generateContextSummary(
-      contactRes.data,
-      [...(historyRes.data || []), interaction],
-      profileRes.data
-    )
-      .then(async (summary) => {
-        await supabase
-          .from("contacts")
-          .update({ context_summary: summary })
-          .eq("id", contact_id);
+  // Try to regenerate context summary in background
+  if (raw_notes && profile) {
+    import("@/lib/claude")
+      .then(({ generateContextSummary }) => {
+        const allInteractions = db
+          .prepare(
+            "SELECT * FROM interactions WHERE contact_id = ? ORDER BY occurred_at DESC LIMIT 10"
+          )
+          .all(contact_id) as Record<string, unknown>[];
+        return generateContextSummary(
+          transformContact(contact),
+          allInteractions.map(transformInteraction),
+          transformProfile(profile)
+        );
       })
-      .catch((err) => console.error("Context summary generation failed:", err));
+      .then((summary) => {
+        db.prepare("UPDATE contacts SET context_summary = ? WHERE id = ?").run(
+          summary,
+          contact_id
+        );
+      })
+      .catch((err) => console.error("Context summary skipped:", err));
   }
 
+  const interaction = db
+    .prepare("SELECT * FROM interactions WHERE id = ?")
+    .get(id) as Record<string, unknown>;
+
   return NextResponse.json({
-    interaction,
+    interaction: transformInteraction(interaction),
     ai_analysis: aiResult,
   });
 }

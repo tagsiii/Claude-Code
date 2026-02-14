@@ -1,18 +1,11 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { getDb, LOCAL_USER_ID } from "@/lib/db";
 
 export async function GET() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const db = getDb();
+  const rows = db
+    .prepare("SELECT * FROM relationship_graph WHERE user_id = ?")
+    .all(LOCAL_USER_ID);
 
-  const { data, error } = await supabase
-    .from("relationship_graph")
-    .select("*")
-    .eq("user_id", user.id);
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json(data);
+  return NextResponse.json(rows);
 }
