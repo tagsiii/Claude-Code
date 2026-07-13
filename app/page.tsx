@@ -3,7 +3,8 @@ import Nav from "./components/Nav";
 import Reveal from "./components/Reveal";
 
 export default function Home() {
-  const { hero, about, work, contact, footer } = content;
+  const { hero, journal, about, work, contact, footer } = content;
+  const [featured, ...rest] = journal.posts;
 
   return (
     <>
@@ -33,6 +34,55 @@ export default function Home() {
                 </a>
               </div>
             </Reveal>
+          </div>
+        </section>
+
+        {/* ── Journal (blog) ─────────────────────── */}
+        <section id={journal.id} className="section section--journal">
+          <div className="container">
+            <Reveal>
+              <p className="eyebrow">{journal.eyebrow}</p>
+            </Reveal>
+            <Reveal delay={60}>
+              <h2 className="section__headline">{journal.headline}</h2>
+            </Reveal>
+
+            <Reveal delay={120}>
+              <a className="post post--featured" href={featured.link}>
+                <div className="post__media" aria-hidden="true">
+                  <span className="post__initial">
+                    {featured.title.replace("Placeholder: ", "").charAt(0).toUpperCase()}
+                  </span>
+                </div>
+                <div className="post__body">
+                  <div className="post__meta">
+                    <span className="post__category">{featured.category}</span>
+                    <span className="post__date">{featured.date}</span>
+                  </div>
+                  <h3 className="post__title">{featured.title}</h3>
+                  <p className="post__excerpt">{featured.excerpt}</p>
+                  <span className="post__read">Read the post →</span>
+                </div>
+              </a>
+            </Reveal>
+
+            <div className="post__grid">
+              {rest.map((post, i) => (
+                <Reveal key={post.title} delay={80 * i} className="post-wrap">
+                  <a className="post" href={post.link}>
+                    <div className="post__body">
+                      <div className="post__meta">
+                        <span className="post__category">{post.category}</span>
+                        <span className="post__date">{post.date}</span>
+                      </div>
+                      <h3 className="post__title post__title--small">{post.title}</h3>
+                      <p className="post__excerpt">{post.excerpt}</p>
+                      <span className="post__read">Read →</span>
+                    </div>
+                  </a>
+                </Reveal>
+              ))}
+            </div>
           </div>
         </section>
 

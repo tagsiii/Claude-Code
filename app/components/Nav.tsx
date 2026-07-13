@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { content } from "../content";
 
 export default function Nav() {
@@ -32,17 +33,25 @@ export default function Nav() {
               {l.label}
             </button>
           ))}
+          <Link href={content.nav.login.href} className="nav__login nav__login--mobile">
+            {content.nav.login.label}
+          </Link>
         </nav>
 
-        <button
-          className="nav__toggle"
-          aria-label="Menu"
-          aria-expanded={open}
-          onClick={() => setOpen((v) => !v)}
-        >
-          <span />
-          <span />
-        </button>
+        <div className="nav__right">
+          <Link href={content.nav.login.href} className="nav__login">
+            {content.nav.login.label}
+          </Link>
+          <button
+            className="nav__toggle"
+            aria-label="Menu"
+            aria-expanded={open}
+            onClick={() => setOpen((v) => !v)}
+          >
+            <span />
+            <span />
+          </button>
+        </div>
       </div>
     </header>
   );
