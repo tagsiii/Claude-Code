@@ -1,0 +1,14 @@
+{
+  "name": "Trey — Training & Fuel",
+  "short_name": "Train",
+  "description": "Workout player, meal generator, bodyweight tracker.",
+  "start_url": "/dashboard/train",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#16150f",
+  "theme_color": "#16150f",
+  "icons": [
+    { "src": "/train-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/train-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

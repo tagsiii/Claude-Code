@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#16150f"/>
+  <!-- barbell -->
+  <g fill="#c9a24b">
+    <rect x="60" y="216" width="392" height="18" rx="2"/>
+    <rect x="96" y="156" width="34" height="138" rx="2"/>
+    <rect x="140" y="176" width="26" height="98" rx="2"/>
+    <rect x="382" y="156" width="34" height="138" rx="2"/>
+    <rect x="346" y="176" width="26" height="98" rx="2"/>
+  </g>
+  <text x="256" y="416" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="92" fill="#f2ede2" letter-spacing="4">TRAIN</text>
+</svg>

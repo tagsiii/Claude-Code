@@ -43,10 +43,10 @@ export default function Dashboard() {
             <span className="tile__soon">Placeholder — build me next</span>
           </section>
 
-          {/* Meal Plan */}
-          <section className="tile">
+          {/* Meal Plan → Training & Fuel app */}
+          <Link href="/dashboard/train" className="tile">
             <span className="tile__kicker">{d.meals.title}</span>
-            <p className="tile__blurb">{d.meals.blurb}</p>
+            <p className="tile__blurb">Weekly generator with grocery list — inside Training &amp; Fuel.</p>
             <ul className="tile__rows">
               {d.meals.days.map((m) => (
                 <li key={m.day}>
@@ -55,13 +55,13 @@ export default function Dashboard() {
                 </li>
               ))}
             </ul>
-            <span className="tile__soon">Placeholder — build me next</span>
-          </section>
+            <span className="tile__soon">Open Training &amp; Fuel →</span>
+          </Link>
 
-          {/* Workout Plan */}
-          <section className="tile">
+          {/* Workout Plan → Training & Fuel app */}
+          <Link href="/dashboard/train" className="tile">
             <span className="tile__kicker">{d.workouts.title}</span>
-            <p className="tile__blurb">{d.workouts.blurb}</p>
+            <p className="tile__blurb">Guided lift player with rest timers — inside Training &amp; Fuel.</p>
             <ul className="tile__rows">
               {d.workouts.days.map((w) => (
                 <li key={w.day}>
@@ -70,8 +70,8 @@ export default function Dashboard() {
                 </li>
               ))}
             </ul>
-            <span className="tile__soon">Placeholder — build me next</span>
-          </section>
+            <span className="tile__soon">Open Training &amp; Fuel →</span>
+          </Link>
 
           {/* Calendar */}
           <section className="tile tile--wide">
