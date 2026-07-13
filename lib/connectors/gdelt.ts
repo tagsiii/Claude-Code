@@ -1,26 +1,12 @@
 import { BaseConnector, ConnectorOptions } from './base';
+import { buildGdeltQueries } from './gdeltQueries';
 import type { RawArticle } from '../types';
 
 const GDELT_DOC_API = 'https://api.gdeltproject.org/api/v2/doc/doc';
 
-// Searches targeting economic statecraft transactions in priority sectors
-const QUERY_GROUPS = [
-  // Strategic infrastructure
-  '"port investment" OR "port development" OR "port concession" OR "port management contract"',
-  '"railway investment" OR "rail construction" OR "airport construction" OR "logistics hub" OR "special economic zone"',
-  // Digital connectivity
-  '"5G contract" OR "5G network" OR "subsea cable" OR "submarine cable" OR "fiber optic network" OR "data center investment"',
-  '"telecom infrastructure" OR "satellite ground station" OR "smart city" OR "digital infrastructure"',
-  // Energy
-  '"power plant investment" OR "energy infrastructure" OR "electricity grid" OR "nuclear power plant" OR "LNG terminal"',
-  '"oil pipeline" OR "gas pipeline" OR "transmission line" OR "critical minerals" OR "mining investment"',
-  // State actor keywords
-  '"Belt and Road" OR "BRI" OR "China Exim Bank" OR "China Development Bank" OR "Silk Road Fund"',
-  '"Rosatom" OR "Gazprom" OR "Russian investment" OR "AIIB" OR "NDB" project',
-  '"sovereign wealth fund" infrastructure OR "state-owned enterprise" infrastructure OR "concessional loan"',
-  // Geopolitical framing
-  '"strategic infrastructure" investment OR "economic statecraft" OR "debt trap" OR "influence" investment',
-];
+// Safety valve: proximity queries are intentionally broad; cap total volume so
+// a hot news week can't explode LLM cost downstream.
+const MAX_ARTICLES = 900;
 
 interface GdeltArticle {
   url: string;
@@ -29,10 +15,6 @@ interface GdeltArticle {
   domain: string;
   language: string;
   sourcecountry: string;
-}
-
-interface GdeltResponse {
-  articles?: GdeltArticle[];
 }
 
 export class GdeltConnector extends BaseConnector {
@@ -47,13 +29,15 @@ export class GdeltConnector extends BaseConnector {
     const lookback = opts.lookbackDays ?? 7;
     const articles: RawArticle[] = [];
     const seen = new Set<string>();
+    this.warnings = [];
 
     const end = new Date();
     const start = new Date(end.getTime() - lookback * 24 * 60 * 60 * 1000);
-    const fmt = (d: Date) =>
-      d.toISOString().replace(/[-:T]/g, '').slice(0, 14);
+    const fmt = (d: Date) => d.toISOString().replace(/[-:T]/g, '').slice(0, 14);
 
-    for (const query of QUERY_GROUPS) {
+    const queries = buildGdeltQueries();
+
+    for (const { label, query } of queries) {
       try {
         const params = new URLSearchParams({
           query,
@@ -70,9 +54,22 @@ export class GdeltConnector extends BaseConnector {
           next: { revalidate: 0 },
         });
 
-        if (!res.ok) continue;
+        const text = await res.text();
+        if (!res.ok) {
+          this.warnings.push(`${label}: HTTP ${res.status} — ${text.slice(0, 120)}`);
+          continue;
+        }
 
-        const json: GdeltResponse = await res.json();
+        // GDELT reports query-syntax errors as plain text with HTTP 200 —
+        // a JSON parse failure here means the query was rejected, not empty.
+        let json: { articles?: GdeltArticle[] };
+        try {
+          json = JSON.parse(text);
+        } catch {
+          this.warnings.push(`${label}: query rejected — ${text.slice(0, 120).replace(/\s+/g, ' ')}`);
+          continue;
+        }
+
         for (const a of json.articles ?? []) {
           if (!a.url || seen.has(a.url)) continue;
           seen.add(a.url);
@@ -89,12 +86,18 @@ export class GdeltConnector extends BaseConnector {
         }
 
         await this.delay(500); // be respectful to GDELT
-      } catch {
-        // continue on per-query errors
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        this.warnings.push(`${label}: ${msg}`.slice(0, 160));
       }
     }
 
-    return articles;
+    // Every single query failed → the net is broken, not the news cycle quiet.
+    if (articles.length === 0 && this.warnings.length === queries.length && queries.length > 0) {
+      throw new Error(`GDELT: all ${queries.length} queries failed — first: ${this.warnings[0]}`);
+    }
+
+    return articles.length > MAX_ARTICLES ? articles.slice(0, MAX_ARTICLES) : articles;
   }
 }
 

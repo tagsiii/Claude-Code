@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "test": "npx --yes tsx tests/pipeline.test.mts",
+    "gdelt:check": "npx --yes tsx scripts/check-gdelt.mts",
     "db:setup": "node scripts/setup-db.js"
   },
   "dependencies": {

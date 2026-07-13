@@ -9,6 +9,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const results = await runIngestionPipeline({ lookbackDays: 1 });
+  // 7-day rolling window: dedup makes re-scans idempotent, and the wider net
+  // catches stories that surface days after the fact.
+  const results = await runIngestionPipeline({ lookbackDays: 7 });
   return NextResponse.json({ ok: true, results });
 }

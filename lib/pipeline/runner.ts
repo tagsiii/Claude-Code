@@ -34,6 +34,7 @@ export async function runIngestionPipeline(opts: RunOptions = {}): Promise<Inges
       const articles: RawArticle[] = await connector.fetchArticles({
         lookbackDays: opts.lookbackDays ?? 7,
       });
+      const connectorWarnings = connector.getWarnings();
 
       // 2. Persist all sources first (for auditability regardless of LLM result)
       const sourcesByUrl = new Map<string, IngestSourceRef>();
@@ -97,9 +98,10 @@ export async function runIngestionPipeline(opts: RunOptions = {}): Promise<Inges
         deals_found: dealsFound,
         deals_created: dealsCreated,
         deals_updated: dealsUpdated,
-        ...(candidateErrors.length > 0 || llmErrors.length > 0
+        ...(candidateErrors.length > 0 || llmErrors.length > 0 || connectorWarnings.length > 0
           ? {
               metadata: {
+                ...(connectorWarnings.length > 0 ? { connector_warnings: connectorWarnings.slice(0, 8) } : {}),
                 ...(llmErrors.length > 0 ? { llm_errors: llmErrors.slice(0, 6) } : {}),
                 ...(candidateErrors.length > 0 ? { candidate_errors: candidateErrors.slice(0, 12) } : {}),
               },

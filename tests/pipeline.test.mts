@@ -2,6 +2,7 @@ import { isLikelySameDeal, titleSimilarity, mergeCandidateIntoDeal } from '../li
 import { normalizeCandidate, normalizeSector, normalizeStage, parseUsd, normalizeKeyDates } from '../lib/pipeline/normalize.ts';
 import { resolveSort, sanitizeSearch } from '../lib/db/queries.ts';
 import { readFileSync } from 'node:fs';
+import { buildGdeltQueries, nearClause, ASSET_TOKENS, SPONSOR_GROUPS } from '../lib/connectors/gdeltQueries.ts';
 
 let pass = 0, fail = 0;
 function check(name: string, cond: boolean, detail = '') {
@@ -207,6 +208,28 @@ console.log('── Sorting + search hardening ──');
   console.log('── Tailwind content globs ──');
   const cfg = readFileSync(new URL('../tailwind.config.ts', import.meta.url), 'utf8');
   check('tailwind.config scans lib/', cfg.includes('./lib/**/*'));
+}
+
+
+// ─── GDELT query builder ───────────────────────────────────────────────────────
+{
+  console.log('── GDELT query builder ──');
+  const queries = buildGdeltQueries();
+  check('produces a bounded set of queries (5-25)', queries.length >= 5 && queries.length <= 25, `got ${queries.length}`);
+  check('every query is a parenthesized OR group', queries.every((q) => q.query.startsWith('(') && q.query.endsWith(')')));
+  check('every query stays under URL-safe length', queries.every((q) => q.query.length < 1400),
+    `longest=${Math.max(...queries.map((q) => q.query.length))}`);
+  check('no empty OR clauses', queries.every((q) => !q.query.includes('OR OR') && !q.query.includes('( OR')));
+
+  const all = queries.map((q) => q.query).join(' ');
+  check("proximity clause shape: near15:\"china port\"", nearClause('china', 'port') === 'near15:"china port"');
+  check('covers the miss-case: beijing near rail', all.includes('near15:"beijing rail"'));
+  check('multiword sponsor works (abu dhabi)', all.includes('near15:"abu dhabi port"'));
+  check('entity watchlist present (DP World)', all.includes('"DP World"'));
+  check('instrument language present', all.includes('"concessional loan"'));
+  check('every sponsor×asset pair appears exactly once',
+    Object.values(SPONSOR_GROUPS).flat().length * ASSET_TOKENS.length ===
+      (all.match(/near15:"/g) ?? []).length);
 }
 
 

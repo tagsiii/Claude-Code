@@ -11,6 +11,7 @@ interface LogMeta {
   document_id?: string;
   candidate_errors?: string[];
   llm_errors?: string[];
+  connector_warnings?: string[];
 }
 
 function meta(log: IngestLog): LogMeta {
@@ -196,6 +197,7 @@ function RunErrors({ log }: { log: IngestLog }) {
   const m = meta(log);
   const errors: string[] = [];
   if (log.error_message) errors.push(log.error_message);
+  if (Array.isArray(m.connector_warnings)) errors.push(...m.connector_warnings);
   if (Array.isArray(m.llm_errors)) errors.push(...m.llm_errors);
   if (Array.isArray(m.candidate_errors)) errors.push(...m.candidate_errors);
   if (errors.length === 0) return null;

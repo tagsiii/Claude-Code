@@ -109,7 +109,7 @@ Or connect your GitHub repo to Vercel and add all environment variables in the V
 
 ### Scheduled jobs (Vercel Cron)
 The `vercel.json` file configures two cron jobs:
-- `0 4 * * *` — Daily ingestion at 04:00 UTC (scans last 24 hours of news)
+- `0 4 * * *` — Daily ingestion at 04:00 UTC (7-day rolling news window; dedup makes re-scans safe)
 - `0 6 * * *` — Daily email at 06:00 UTC (sends top 3 deals to `EMAIL_TO`)
 
 Cron jobs require Vercel's Hobby plan or higher. On free tier, use a service like [cron-job.org](https://cron-job.org) to call these endpoints:

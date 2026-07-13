@@ -11,6 +11,14 @@ export abstract class BaseConnector {
   abstract isAvailable(): boolean;
   abstract fetchArticles(opts: ConnectorOptions): Promise<RawArticle[]>;
 
+  // Non-fatal problems from the last fetch (e.g. one of several queries was
+  // rejected). Runner records these in the ingest log so a partially-broken
+  // net is visible instead of silently shrinking coverage.
+  protected warnings: string[] = [];
+  getWarnings(): string[] {
+    return this.warnings;
+  }
+
   protected delay(ms: number) {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
