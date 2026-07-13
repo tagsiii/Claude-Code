@@ -33,11 +33,20 @@ const REGIONS = [
   { value: 'Europe', label: 'Europe' },
 ];
 
+const SOURCE_TIERS = [
+  { value: 'all', label: 'All Source Types' },
+  { value: '1', label: 'T1 · Primary/Official' },
+  { value: '2', label: 'T2 · Established Press' },
+  { value: '3', label: 'T3 · Secondary' },
+];
+
 const SORT_OPTIONS = [
   { value: 'composite_score', label: 'Score ↓' },
   { value: 'last_updated_at', label: 'Updated ↓' },
   { value: 'first_seen_at', label: 'First Seen ↓' },
   { value: 'rom_value_usd', label: 'Deal Size ↓' },
+  { value: 'source_count', label: 'Source Count ↓' },
+  { value: 'source_confidence_tier', label: 'Source Quality ↑' },
 ];
 
 interface Props {
@@ -97,6 +106,11 @@ export function DashboardControls({ currentFilters }: Props) {
         value={currentFilters.host_region ?? 'all'}
         onChange={(v) => updateFilter('host_region', v)}
         options={REGIONS}
+      />
+      <Select
+        value={currentFilters.source_tier ?? 'all'}
+        onChange={(v) => updateFilter('source_tier', v)}
+        options={SOURCE_TIERS}
       />
 
       <div className="h-5 w-px bg-border hidden sm:block" />

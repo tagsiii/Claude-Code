@@ -5,12 +5,24 @@ import type { Deal, Source, DealEvent, ScoreWeight, ConnectorConfig, IngestLog, 
 
 // Sort params come straight from the URL — whitelist them so an unexpected value
 // can't error the whole dashboard query (which would render an empty page).
-const SORTABLE_COLUMNS = new Set(['composite_score', 'last_updated_at', 'first_seen_at', 'rom_value_usd']);
+const SORTABLE_COLUMNS = new Set([
+  'composite_score',
+  'last_updated_at',
+  'first_seen_at',
+  'rom_value_usd',
+  'source_count',
+  'source_confidence_tier',
+]);
 
 export function resolveSort(filters: DashboardFilters): { column: string; ascending: boolean } {
   const column =
     filters.sort_by && SORTABLE_COLUMNS.has(filters.sort_by) ? filters.sort_by : 'composite_score';
-  return { column, ascending: filters.sort_dir === 'asc' };
+  // Tier 1 is the BEST source quality, so tier sorts ascending by default;
+  // everything else defaults to descending (highest/newest first).
+  const ascending = filters.sort_dir
+    ? filters.sort_dir === 'asc'
+    : column === 'source_confidence_tier';
+  return { column, ascending };
 }
 
 // PostgREST's .or() syntax treats commas/parens as structure — strip them from
@@ -36,6 +48,12 @@ export async function getDeals(filters: DashboardFilters = {}): Promise<Deal[]> 
   }
   if (filters.host_region && filters.host_region !== 'all') {
     query = query.eq('host_region', filters.host_region);
+  }
+  if (filters.source_tier && filters.source_tier !== 'all') {
+    const tier = Number(filters.source_tier);
+    if ([1, 2, 3].includes(tier)) {
+      query = query.eq('source_confidence_tier', tier);
+    }
   }
   if (filters.min_score !== undefined) {
     query = query.gte('composite_score', filters.min_score);

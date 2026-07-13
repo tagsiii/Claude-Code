@@ -10,6 +10,7 @@ import {
   sectorColorClass,
   stageColorClass,
   scorePillClass,
+  tierColorClass,
 } from '@/lib/utils/format';
 
 export function DealTable({ deals }: { deals: Deal[] }) {
@@ -26,7 +27,7 @@ export function DealTable({ deals }: { deals: Deal[] }) {
               <th className="px-3 py-3 font-medium hidden lg:table-cell">Sector</th>
               <th className="px-3 py-3 font-medium">Stage</th>
               <th className="px-3 py-3 font-medium text-right hidden sm:table-cell">Value</th>
-              <th className="px-3 py-3 font-medium text-center hidden xl:table-cell">Sources</th>
+              <th className="px-3 py-3 font-medium text-center hidden lg:table-cell">Sources</th>
               <th className="px-3 py-3 font-medium text-right">Score</th>
               <th className="px-4 py-3 font-medium text-right hidden lg:table-cell">Updated</th>
             </tr>
@@ -81,9 +82,21 @@ export function DealTable({ deals }: { deals: Deal[] }) {
                     : <span className="text-muted-foreground">—</span>}
                 </td>
 
-                {/* Sources */}
-                <td className="px-3 py-3 text-center hidden xl:table-cell whitespace-nowrap">
+                {/* Sources: count + best confidence tier + confirmed dot */}
+                <td className="px-3 py-3 text-center hidden lg:table-cell whitespace-nowrap">
                   <span className="text-foreground font-mono-numbers">{deal.source_count}</span>
+                  <span
+                    className={`ml-1.5 text-[10px] font-semibold ${tierColorClass(deal.source_confidence_tier)}`}
+                    title={
+                      deal.source_confidence_tier === 1
+                        ? 'Best source: primary/official'
+                        : deal.source_confidence_tier === 2
+                          ? 'Best source: established press'
+                          : 'Best source: secondary'
+                    }
+                  >
+                    T{deal.source_confidence_tier}
+                  </span>
                   <span
                     className={`ml-1.5 inline-block w-1.5 h-1.5 rounded-full align-middle ${
                       deal.is_confirmed ? 'bg-[hsl(var(--success))]' : 'bg-muted-foreground/40'

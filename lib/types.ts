@@ -173,9 +173,16 @@ export interface DashboardFilters {
   sponsoring_state?: string | 'all';
   lifecycle_stage?: LifecycleStage | 'all';
   host_region?: string | 'all';
+  source_tier?: string | 'all'; // '1' | '2' | '3' — best confidence tier on the deal
   min_score?: number;
   search?: string;
-  sort_by?: 'composite_score' | 'last_updated_at' | 'first_seen_at' | 'rom_value_usd';
+  sort_by?:
+    | 'composite_score'
+    | 'last_updated_at'
+    | 'first_seen_at'
+    | 'rom_value_usd'
+    | 'source_count'
+    | 'source_confidence_tier';
   sort_dir?: 'asc' | 'desc';
 }
 

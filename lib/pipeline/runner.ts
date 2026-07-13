@@ -3,7 +3,7 @@ import { getConnectorByName } from '../connectors';
 import { extractDealsFromArticles } from '../llm/analyze';
 import { upsertSource } from '../db/queries';
 import { ingestCandidate, type IngestSourceRef } from './ingestCandidate';
-import type { IngestResult, RawArticle, DealCandidate } from '../types';
+import type { IngestResult, RawArticle } from '../types';
 
 export interface RunOptions {
   connectorNames?: string[]; // if omitted, runs all enabled
@@ -69,7 +69,7 @@ export async function runIngestionPipeline(opts: RunOptions = {}): Promise<Inges
       }
 
       // 3. LLM: extract deal candidates from article titles
-      const candidates: DealCandidate[] = await extractDealsFromArticles(articles);
+      const { candidates, errors: llmErrors } = await extractDealsFromArticles(articles);
       dealsFound = candidates.length;
 
       // 4. Process each candidate through the shared running-tab pipeline.
@@ -97,8 +97,13 @@ export async function runIngestionPipeline(opts: RunOptions = {}): Promise<Inges
         deals_found: dealsFound,
         deals_created: dealsCreated,
         deals_updated: dealsUpdated,
-        ...(candidateErrors.length > 0
-          ? { metadata: { candidate_errors: candidateErrors.slice(0, 12) } }
+        ...(candidateErrors.length > 0 || llmErrors.length > 0
+          ? {
+              metadata: {
+                ...(llmErrors.length > 0 ? { llm_errors: llmErrors.slice(0, 6) } : {}),
+                ...(candidateErrors.length > 0 ? { candidate_errors: candidateErrors.slice(0, 12) } : {}),
+              },
+            }
           : {}),
       });
 

@@ -49,7 +49,11 @@ export async function analyzeDocument(docId: string): Promise<DocumentAnalysisRe
       await updateDocument(doc.id, { source_id: source.id });
     }
 
-    const candidates = await extractDealsFromDocument(doc.filename, doc.parsed_text, doc.notes);
+    const { candidates, errors: llmErrors } = await extractDealsFromDocument(
+      doc.filename,
+      doc.parsed_text,
+      doc.notes
+    );
 
     let created = 0;
     let updated = 0;
@@ -84,6 +88,7 @@ export async function analyzeDocument(docId: string): Promise<DocumentAnalysisRe
       metadata: {
         document_id: doc.id,
         filename: doc.filename,
+        ...(llmErrors.length > 0 ? { llm_errors: llmErrors.slice(0, 6) } : {}),
         ...(candidateErrors.length > 0 ? { candidate_errors: candidateErrors.slice(0, 12) } : {}),
       },
     });

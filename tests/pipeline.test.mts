@@ -103,6 +103,8 @@ console.log('── Sorting + search hardening ──');
   check('invalid sort column → composite_score', resolveSort({ sort_by: 'title;DROP TABLE deals' as never }).column === 'composite_score');
   check('sort_dir asc honored', resolveSort({ sort_by: 'first_seen_at', sort_dir: 'asc' }).ascending === true);
   check('sort_dir default desc', resolveSort({}).ascending === false);
+  check('source tier sorts ascending by default (T1 = best first)', resolveSort({ sort_by: 'source_confidence_tier' }).ascending === true);
+  check('source tier explicit desc honored', resolveSort({ sort_by: 'source_confidence_tier', sort_dir: 'desc' }).ascending === false);
   check('search commas/parens stripped', sanitizeSearch('port, energy (China)') === 'port energy China');
   check('search percent stripped', sanitizeSearch('100% done') === '100 done');
 }
@@ -192,7 +194,7 @@ console.log('── Sorting + search hardening ──');
   console.log('── UI sort options accepted by server ──');
   // Values from DashboardControls SORT_OPTIONS — if someone adds an option there
   // without whitelisting it in resolveSort, this fails.
-  for (const v of ['composite_score', 'last_updated_at', 'first_seen_at', 'rom_value_usd']) {
+  for (const v of ['composite_score', 'last_updated_at', 'first_seen_at', 'rom_value_usd', 'source_count', 'source_confidence_tier']) {
     check(`sort option '${v}' accepted`, resolveSort({ sort_by: v as never }).column === v);
   }
 }

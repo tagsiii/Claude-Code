@@ -13,16 +13,26 @@ const BATCH_SIZE = 60; // articles per LLM call
 const DOC_CHUNK_CHARS = 12000; // ~3k tokens of document text per LLM call
 const MAX_DOC_CHUNKS = 8; // cap cost/time on very large documents
 
+export interface ExtractionResult {
+  candidates: DealCandidate[];
+  // Non-fatal LLM/batch failures — surfaced in the ingest log so a scan that
+  // partially failed is distinguishable from a genuinely quiet news cycle.
+  errors: string[];
+}
+
 export async function extractDealsFromArticles(
   articles: RawArticle[]
-): Promise<DealCandidate[]> {
-  if (!isLlmAvailable() || articles.length === 0) return [];
+): Promise<ExtractionResult> {
+  if (!isLlmAvailable() || articles.length === 0) return { candidates: [], errors: [] };
 
   const allCandidates: DealCandidate[] = [];
+  const errors: string[] = [];
+  let batchCount = 0;
 
   // Process in batches to stay within token limits
   for (let i = 0; i < articles.length; i += BATCH_SIZE) {
     const batch = articles.slice(i, i + BATCH_SIZE);
+    batchCount++;
     try {
       const prompt = buildExtractionPrompt(batch);
       const response = await callClaude(DEAL_EXTRACTION_SYSTEM, prompt, 8000);
@@ -40,9 +50,12 @@ export async function extractDealsFromArticles(
             : batch.slice(0, 2).map((a) => a.url); // fallback to first 2 in batch
           allCandidates.push(candidate);
         }
+      } else {
+        errors.push(`batch ${batchCount}: LLM returned unparseable output`);
       }
-    } catch {
-      // skip failed batch
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      errors.push(`batch ${batchCount}: ${msg}`.slice(0, 200));
     }
 
     // Avoid hammering the API between batches
@@ -51,7 +64,13 @@ export async function extractDealsFromArticles(
     }
   }
 
-  return allCandidates;
+  // If EVERY batch failed, the scan didn't observe a quiet world — it broke.
+  // Fail loudly so the run is marked as an error, not "0 deals found".
+  if (allCandidates.length === 0 && errors.length === batchCount && batchCount > 0) {
+    throw new Error(`AI extraction failed for all ${batchCount} batch(es) — ${errors[0]}`);
+  }
+
+  return { candidates: allCandidates, errors };
 }
 
 // Extract deal candidates from a full uploaded document's text.
@@ -60,11 +79,12 @@ export async function extractDealsFromDocument(
   filename: string,
   text: string,
   notes?: string | null
-): Promise<DealCandidate[]> {
-  if (!isLlmAvailable() || !text.trim()) return [];
+): Promise<ExtractionResult> {
+  if (!isLlmAvailable() || !text.trim()) return { candidates: [], errors: [] };
 
   const chunks = chunkText(text, DOC_CHUNK_CHARS).slice(0, MAX_DOC_CHUNKS);
   const bySignature = new Map<string, DealCandidate>();
+  const errors: string[] = [];
 
   for (let i = 0; i < chunks.length; i++) {
     try {
@@ -81,14 +101,21 @@ export async function extractDealsFromDocument(
           const sig = `${candidate.title.toLowerCase().trim()}|${candidate.host_country ?? ''}`;
           if (!bySignature.has(sig)) bySignature.set(sig, candidate);
         }
+      } else {
+        errors.push(`chunk ${i + 1}/${chunks.length}: LLM returned unparseable output`);
       }
-    } catch {
-      // skip failed chunk
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      errors.push(`chunk ${i + 1}/${chunks.length}: ${msg}`.slice(0, 200));
     }
     if (i + 1 < chunks.length) await new Promise((r) => setTimeout(r, 1500));
   }
 
-  return [...bySignature.values()];
+  if (bySignature.size === 0 && errors.length === chunks.length && chunks.length > 0) {
+    throw new Error(`AI extraction failed for all ${chunks.length} chunk(s) — ${errors[0]}`);
+  }
+
+  return { candidates: [...bySignature.values()], errors };
 }
 
 function chunkText(text: string, size: number): string[] {
