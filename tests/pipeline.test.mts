@@ -1,4 +1,4 @@
-import { isLikelySameDeal, titleSimilarity } from '../lib/pipeline/deduplication.ts';
+import { isLikelySameDeal, titleSimilarity, mergeCandidateIntoDeal } from '../lib/pipeline/deduplication.ts';
 import { normalizeCandidate, normalizeSector, normalizeStage, parseUsd, normalizeKeyDates } from '../lib/pipeline/normalize.ts';
 import { resolveSort, sanitizeSearch } from '../lib/db/queries.ts';
 
@@ -104,6 +104,96 @@ console.log('── Sorting + search hardening ──');
   check('sort_dir default desc', resolveSort({}).ascending === false);
   check('search commas/parens stripped', sanitizeSearch('port, energy (China)') === 'port energy China');
   check('search percent stripped', sanitizeSearch('100% done') === '100 done');
+}
+
+
+// ─── Running-tab simulation: the analyst workflow end-to-end (logic layer) ──────
+// Simulates uploading two documents whose deals overlap, using the REAL decision
+// functions (normalizeCandidate → isLikelySameDeal → mergeCandidateIntoDeal), and
+// asserts the tab ends up with the right rows — the exact scenario that failed.
+{
+  console.log('── Running-tab simulation: two overlapping documents ──');
+
+  interface TabDeal {
+    id: string; title: string; subsector: string | null; sponsoring_state: string | null;
+    host_country: string | null; sector: string; lifecycle_stage: string;
+    lifecycle_reasoning?: string | null; rom_value_usd: number | null; rom_basis?: string | null;
+    financial_sponsors: Array<{ name: string }>; source_count: number;
+  }
+
+  const tab: TabDeal[] = [];
+  let nextId = 1;
+
+  function simulateIngest(rawCandidates: unknown[]): { created: number; updated: number } {
+    let created = 0, updated = 0;
+    for (const raw of rawCandidates) {
+      const c = normalizeCandidate(raw as never);
+      if (!c.title) continue;
+      const pool = tab.filter(
+        (d) => d.sector === c.sector && (!c.host_country || !d.host_country || d.host_country === c.host_country)
+      );
+      let best: { deal: TabDeal; sim: number } | null = null;
+      for (const d of pool) {
+        const v = isLikelySameDeal(c, d as never);
+        if (v.match && (!best || v.similarity > best.sim)) best = { deal: d, sim: v.similarity };
+      }
+      if (best) {
+        const merged = mergeCandidateIntoDeal(best.deal as never, c);
+        Object.assign(best.deal, merged);
+        best.deal.source_count++;
+        updated++;
+      } else {
+        tab.push({
+          id: String(nextId++), title: c.title, subsector: c.subsector,
+          sponsoring_state: c.sponsoring_state, host_country: c.host_country,
+          sector: c.sector, lifecycle_stage: c.lifecycle_stage,
+          rom_value_usd: c.rom_value_usd, financial_sponsors: c.financial_sponsors,
+          source_count: 1,
+        });
+        created++;
+      }
+    }
+    return { created, updated };
+  }
+
+  // Document 1: three distinct deals.
+  const doc1 = simulateIngest([
+    { title: 'China-funded Port Expansion, Colombo, Sri Lanka', sector: 'strategic_infrastructure', subsector: 'port', sponsoring_state: 'China', host_country: 'Sri Lanka', lifecycle_stage: 'negotiation' },
+    { title: 'Huawei 5G National Rollout, Bangladesh', sector: 'Digital Connectivity', subsector: '5G network', sponsoring_state: 'China', host_country: 'Bangladesh', lifecycle_stage: 'MOU' },
+    { title: 'Standard Gauge Railway Extension, Kenya', sector: 'strategic_infrastructure', subsector: 'rail', sponsoring_state: 'China', host_country: 'Kenya', lifecycle_stage: 'signed' },
+  ]);
+  check('doc 1: all three deals created', doc1.created === 3 && doc1.updated === 0, JSON.stringify(doc1));
+
+  // Document 2: one NEW deal in the same city/sector (the old bug swallowed this),
+  // one re-report of an existing deal with a stage upgrade, one unrelated new deal.
+  const doc2 = simulateIngest([
+    { title: 'China-funded Airport Expansion, Colombo, Sri Lanka', sector: 'strategic_infrastructure', subsector: 'airport', sponsoring_state: 'China', host_country: 'Sri Lanka', lifecycle_stage: 'rumored' },
+    { title: 'Colombo Port Expansion Project (China), Sri Lanka', sector: 'strategic_infrastructure', subsector: 'port', sponsoring_state: 'China', host_country: 'Sri Lanka', lifecycle_stage: 'Signed', rom_value_usd: '$1.4 billion' },
+    { title: 'Rosatom Nuclear Power Plant, El Dabaa, Egypt', sector: 'energy', subsector: 'nuclear power', sponsoring_state: 'Russia', host_country: 'Egypt', lifecycle_stage: 'under construction' },
+  ]);
+  check('doc 2: airport + nuclear created, port updated', doc2.created === 2 && doc2.updated === 1, JSON.stringify(doc2));
+  check('tab has 5 distinct deals', tab.length === 5, `got ${tab.length}`);
+
+  const port = tab.find((d) => d.subsector === 'port')!;
+  check('port deal stage upgraded negotiation → signed', port.lifecycle_stage === 'signed', port.lifecycle_stage);
+  check('port deal value filled from re-report ($1.4B parsed)', port.rom_value_usd === 1_400_000_000, String(port.rom_value_usd));
+  check('port deal source count incremented', port.source_count === 2, String(port.source_count));
+
+  // Re-analyzing the SAME document must not duplicate anything (idempotence).
+  const rerun = simulateIngest([
+    { title: 'China-funded Airport Expansion, Colombo, Sri Lanka', sector: 'strategic_infrastructure', subsector: 'airport', sponsoring_state: 'China', host_country: 'Sri Lanka', lifecycle_stage: 'rumored' },
+  ]);
+  check('re-analyze same doc: no duplicate rows', rerun.created === 0 && rerun.updated === 1 && tab.length === 5, JSON.stringify(rerun));
+}
+
+// ─── Every sort option offered in the UI must pass the server whitelist ────────
+{
+  console.log('── UI sort options accepted by server ──');
+  // Values from DashboardControls SORT_OPTIONS — if someone adds an option there
+  // without whitelisting it in resolveSort, this fails.
+  for (const v of ['composite_score', 'last_updated_at', 'first_seen_at', 'rom_value_usd']) {
+    check(`sort option '${v}' accepted`, resolveSort({ sort_by: v as never }).column === v);
+  }
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

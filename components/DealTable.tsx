@@ -2,11 +2,11 @@
 
 import { useRouter } from 'next/navigation';
 import type { Deal } from '@/lib/types';
+import { TimeAgo } from './TimeAgo';
 import {
   formatSector,
   formatStage,
   formatRom,
-  formatRelativeTime,
   sectorColorClass,
   stageColorClass,
   scorePillClass,
@@ -103,7 +103,7 @@ export function DealTable({ deals }: { deals: Deal[] }) {
 
                 {/* Updated */}
                 <td className="px-4 py-3 text-right hidden lg:table-cell whitespace-nowrap text-xs text-muted-foreground">
-                  {formatRelativeTime(deal.last_updated_at)}
+                  <TimeAgo iso={deal.last_updated_at} />
                 </td>
               </tr>
             ))}
