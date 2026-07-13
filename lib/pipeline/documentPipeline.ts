@@ -1,17 +1,25 @@
-import { upsertSource, updateDocument, getDocumentById } from '../db/queries';
+import {
+  upsertSource,
+  updateDocument,
+  getDocumentById,
+  createIngestLog,
+  updateIngestLog,
+} from '../db/queries';
 import { extractDealsFromDocument } from '../llm/analyze';
 import { ingestCandidate, type IngestSourceRef } from './ingestCandidate';
-import type { DocumentRecord } from '../types';
 
 export interface DocumentAnalysisResult {
   found: number;
   created: number;
   updated: number;
+  failed: number;
 }
 
 // Run an already-parsed uploaded document through the shared running-tab pipeline.
 // The document becomes a tier-1 (primary) source, so any deal it corroborates gains
-// both a linked source and a corroboration-score boost.
+// both a linked source and a corroboration-score boost. Each analysis also writes an
+// ingest_logs entry (connector: 'upload') so it appears in Pipeline History with any
+// per-candidate failures recorded in metadata — nothing fails silently.
 export async function analyzeDocument(docId: string): Promise<DocumentAnalysisResult> {
   const doc = await getDocumentById(docId);
   if (!doc) throw new Error('Document not found');
@@ -20,6 +28,7 @@ export async function analyzeDocument(docId: string): Promise<DocumentAnalysisRe
   }
 
   await updateDocument(doc.id, { status: 'analyzing', error_message: null });
+  const logId = await createIngestLog('upload');
 
   try {
     // Ensure the document has a backing source row (idempotent on synthetic URL).
@@ -44,6 +53,7 @@ export async function analyzeDocument(docId: string): Promise<DocumentAnalysisRe
 
     let created = 0;
     let updated = 0;
+    const candidateErrors: string[] = [];
     for (const candidate of candidates) {
       try {
         const outcome = await ingestCandidate(candidate, {
@@ -53,22 +63,50 @@ export async function analyzeDocument(docId: string): Promise<DocumentAnalysisRe
         });
         if (outcome === 'created') created++;
         else if (outcome === 'updated') updated++;
-      } catch {
-        // skip failed candidate
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        candidateErrors.push(`${candidate.title || 'untitled'}: ${msg}`.slice(0, 200));
       }
     }
 
-    const result: DocumentAnalysisResult = { found: candidates.length, created, updated };
+    const result: DocumentAnalysisResult = {
+      found: candidates.length,
+      created,
+      updated,
+      failed: candidateErrors.length,
+    };
+
+    await updateIngestLog(logId, {
+      status: 'success',
+      deals_found: result.found,
+      deals_created: created,
+      deals_updated: updated,
+      metadata: {
+        document_id: doc.id,
+        filename: doc.filename,
+        ...(candidateErrors.length > 0 ? { candidate_errors: candidateErrors.slice(0, 12) } : {}),
+      },
+    });
+
     await updateDocument(doc.id, {
       status: 'analyzed',
       deals_found: result.found,
       deals_created: result.created,
       deals_updated: result.updated,
       analyzed_at: new Date().toISOString(),
+      error_message:
+        candidateErrors.length > 0
+          ? `${candidateErrors.length} of ${candidates.length} candidates failed — see Config → Pipeline History`
+          : null,
     });
     return result;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
+    await updateIngestLog(logId, {
+      status: 'error',
+      error_message: message,
+      metadata: { document_id: docId },
+    });
     await updateDocument(doc.id, { status: 'error', error_message: message });
     throw err;
   }

@@ -12,18 +12,26 @@ export const dynamic = 'force-dynamic';
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: Record<string, string>;
+  searchParams: Record<string, string | string[] | undefined>;
 }) {
+  // Next.js delivers repeated URL params as arrays — flatten to first value so
+  // filters/sorting always receive plain strings.
+  const sp: Record<string, string> = {};
+  for (const [key, value] of Object.entries(searchParams)) {
+    const first = Array.isArray(value) ? value[0] : value;
+    if (first) sp[key] = first;
+  }
+
   const [deals, lastIngest] = await Promise.all([
     getDeals({
-      sector: (searchParams.sector as never) || 'all',
-      sponsoring_state: searchParams.sponsoring_state || 'all',
-      lifecycle_stage: (searchParams.lifecycle_stage as never) || 'all',
-      host_region: searchParams.host_region || 'all',
-      search: searchParams.search,
-      sort_by: (searchParams.sort_by as never) || 'composite_score',
-      sort_dir: (searchParams.sort_dir as 'asc' | 'desc') || 'desc',
-      min_score: searchParams.min_score ? Number(searchParams.min_score) : undefined,
+      sector: (sp.sector as never) || 'all',
+      sponsoring_state: sp.sponsoring_state || 'all',
+      lifecycle_stage: (sp.lifecycle_stage as never) || 'all',
+      host_region: sp.host_region || 'all',
+      search: sp.search,
+      sort_by: (sp.sort_by as never) || 'composite_score',
+      sort_dir: (sp.sort_dir as 'asc' | 'desc') || 'desc',
+      min_score: sp.min_score ? Number(sp.min_score) : undefined,
     }),
     getLatestSuccessfulIngest(),
   ]);
@@ -60,18 +68,18 @@ export default async function DashboardPage({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <ExportDialog filters={searchParams} dealCount={deals.length} />
+          <ExportDialog filters={sp} dealCount={deals.length} />
           <IngestPanel />
         </div>
       </div>
 
       {/* Filters */}
-      <DashboardControls currentFilters={searchParams} />
+      <DashboardControls currentFilters={sp} />
 
       {/* Deal table */}
       <Suspense fallback={<TableSkeleton />}>
         {deals.length === 0 ? (
-          <EmptyState hasFilters={Object.keys(searchParams).some((k) => searchParams[k])} />
+          <EmptyState hasFilters={Object.keys(sp).length > 0} />
         ) : (
           <DealTable deals={deals} />
         )}

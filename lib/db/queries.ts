@@ -3,6 +3,22 @@ import type { Deal, Source, DealEvent, ScoreWeight, ConnectorConfig, IngestLog, 
 
 // ─── Deals ────────────────────────────────────────────────────────────────────
 
+// Sort params come straight from the URL — whitelist them so an unexpected value
+// can't error the whole dashboard query (which would render an empty page).
+const SORTABLE_COLUMNS = new Set(['composite_score', 'last_updated_at', 'first_seen_at', 'rom_value_usd']);
+
+export function resolveSort(filters: DashboardFilters): { column: string; ascending: boolean } {
+  const column =
+    filters.sort_by && SORTABLE_COLUMNS.has(filters.sort_by) ? filters.sort_by : 'composite_score';
+  return { column, ascending: filters.sort_dir === 'asc' };
+}
+
+// PostgREST's .or() syntax treats commas/parens as structure — strip them from
+// user search text so a search like "port, energy" can't break the query.
+export function sanitizeSearch(search: string): string {
+  return search.replace(/[,()"'\\%]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
 export async function getDeals(filters: DashboardFilters = {}): Promise<Deal[]> {
   let query = db
     .from('deals')
@@ -25,14 +41,16 @@ export async function getDeals(filters: DashboardFilters = {}): Promise<Deal[]> 
     query = query.gte('composite_score', filters.min_score);
   }
   if (filters.search) {
-    query = query.or(
-      `title.ilike.%${filters.search}%,host_country.ilike.%${filters.search}%,sponsoring_state.ilike.%${filters.search}%`
-    );
+    const s = sanitizeSearch(filters.search);
+    if (s) {
+      query = query.or(
+        `title.ilike.%${s}%,host_country.ilike.%${s}%,sponsoring_state.ilike.%${s}%`
+      );
+    }
   }
 
-  const sortBy = filters.sort_by ?? 'composite_score';
-  const sortDir = filters.sort_dir ?? 'desc';
-  query = query.order(sortBy, { ascending: sortDir === 'asc', nullsFirst: false });
+  const { column, ascending } = resolveSort(filters);
+  query = query.order(column, { ascending, nullsFirst: false });
 
   const { data, error } = await query;
   if (error) throw error;
@@ -92,6 +110,21 @@ export async function findSimilarDeals(
     .eq('host_country', hostCountry)
     .order('last_updated_at', { ascending: false })
     .limit(20);
+
+  if (error) return [];
+  return (data ?? []) as Deal[];
+}
+
+// Wider dedup pool for candidates with no host country — caller compensates by
+// demanding a stronger title match.
+export async function findSimilarDealsBySector(sector: string, limit = 50): Promise<Deal[]> {
+  const { data, error } = await db
+    .from('deals')
+    .select('*')
+    .eq('status', 'active')
+    .eq('sector', sector)
+    .order('last_updated_at', { ascending: false })
+    .limit(limit);
 
   if (error) return [];
   return (data ?? []) as Deal[];

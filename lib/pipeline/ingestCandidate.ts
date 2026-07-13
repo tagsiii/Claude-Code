@@ -5,6 +5,7 @@ import {
   addDealEvent,
 } from '../db/queries';
 import { findDuplicateDeal, mergeCandidateIntoDeal } from './deduplication';
+import { normalizeCandidate } from './normalize';
 import { scoreDeal } from './scoring';
 import { generateDealSummary } from '../llm/analyze';
 import type { ConfidenceTier, Deal, DealCandidate } from '../types';
@@ -49,10 +50,13 @@ function resolveSources(candidate: DealCandidate, ctx: CandidateContext): Ingest
 // one, keeping the running tab of each transaction current. Writes timeline events
 // for every material change so the deal's evolution is auditable.
 export async function ingestCandidate(
-  candidate: DealCandidate,
+  rawCandidate: DealCandidate,
   ctx: CandidateContext
 ): Promise<IngestOutcome> {
-  if (!candidate.title || !candidate.sector) return 'skipped';
+  // Coerce LLM output to schema-safe values (enum casing, synonyms, loose dates,
+  // "$1.2 billion" strings) so CHECK constraints can't silently kill the insert.
+  const candidate = normalizeCandidate(rawCandidate);
+  if (!candidate.title) return 'skipped';
 
   const sources = resolveSources(candidate, ctx);
   const dup = await findDuplicateDeal(candidate);

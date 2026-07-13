@@ -72,7 +72,10 @@ export async function runIngestionPipeline(opts: RunOptions = {}): Promise<Inges
       const candidates: DealCandidate[] = await extractDealsFromArticles(articles);
       dealsFound = candidates.length;
 
-      // 4. Process each candidate through the shared running-tab pipeline
+      // 4. Process each candidate through the shared running-tab pipeline.
+      // Collect (don't swallow) per-candidate failures — a vanished deal with
+      // no trace is undebuggable.
+      const candidateErrors: string[] = [];
       for (const candidate of candidates) {
         try {
           const outcome = await ingestCandidate(candidate, {
@@ -82,8 +85,9 @@ export async function runIngestionPipeline(opts: RunOptions = {}): Promise<Inges
           });
           if (outcome === 'created') dealsCreated++;
           else if (outcome === 'updated') dealsUpdated++;
-        } catch {
-          // skip failed candidate; continue pipeline
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          candidateErrors.push(`${candidate.title || 'untitled'}: ${msg}`.slice(0, 200));
         }
       }
 
@@ -93,6 +97,9 @@ export async function runIngestionPipeline(opts: RunOptions = {}): Promise<Inges
         deals_found: dealsFound,
         deals_created: dealsCreated,
         deals_updated: dealsUpdated,
+        ...(candidateErrors.length > 0
+          ? { metadata: { candidate_errors: candidateErrors.slice(0, 12) } }
+          : {}),
       });
 
       results.push(connector.buildResult(dealsFound, dealsCreated, dealsUpdated, Date.now() - t0));
