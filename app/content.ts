@@ -197,8 +197,10 @@ export const dashboard = {
     title: "Calendar",
     blurb:
       "Paste a Google Calendar embed URL into embedUrl below and it will render here.",
-    // Example: "https://calendar.google.com/calendar/embed?src=YOUR_ID&mode=WEEK"
-    embedUrl: "",
+    // Week view, chrome hidden for a clean tile. Change ctz if you're
+    // not in Eastern time (e.g. America/Chicago, America/Los_Angeles).
+    embedUrl:
+      "https://calendar.google.com/calendar/embed?src=treyseabrooke%40gmail.com&mode=WEEK&ctz=America%2FNew_York&showTitle=0&showPrint=0&showCalendars=0&showTz=0",
   },
 
   events: {
