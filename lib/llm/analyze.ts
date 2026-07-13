@@ -2,12 +2,16 @@ import { callClaude, isLlmAvailable } from './client';
 import {
   DEAL_EXTRACTION_SYSTEM,
   DEAL_SUMMARY_SYSTEM,
+  DOCUMENT_EXTRACTION_SYSTEM,
   buildExtractionPrompt,
   buildSummaryPrompt,
+  buildDocumentExtractionPrompt,
 } from './prompts';
-import type { RawArticle, DealCandidate, Source } from '../types';
+import type { RawArticle, DealCandidate } from '../types';
 
 const BATCH_SIZE = 60; // articles per LLM call
+const DOC_CHUNK_CHARS = 12000; // ~3k tokens of document text per LLM call
+const MAX_DOC_CHUNKS = 8; // cap cost/time on very large documents
 
 export async function extractDealsFromArticles(
   articles: RawArticle[]
@@ -50,12 +54,66 @@ export async function extractDealsFromArticles(
   return allCandidates;
 }
 
+// Extract deal candidates from a full uploaded document's text.
+// Chunks large documents and de-duplicates candidates by title across chunks.
+export async function extractDealsFromDocument(
+  filename: string,
+  text: string,
+  notes?: string | null
+): Promise<DealCandidate[]> {
+  if (!isLlmAvailable() || !text.trim()) return [];
+
+  const chunks = chunkText(text, DOC_CHUNK_CHARS).slice(0, MAX_DOC_CHUNKS);
+  const bySignature = new Map<string, DealCandidate>();
+
+  for (let i = 0; i < chunks.length; i++) {
+    try {
+      const prompt = buildDocumentExtractionPrompt(filename, chunks[i], notes, {
+        index: i + 1,
+        total: chunks.length,
+      });
+      const response = await callClaude(DOCUMENT_EXTRACTION_SYSTEM, prompt, 8000);
+      const parsed = parseJsonSafely<DealCandidate[]>(response);
+      if (Array.isArray(parsed)) {
+        for (const candidate of parsed) {
+          if (!candidate?.title || !candidate?.sector) continue;
+          candidate.source_urls = []; // the document itself is the source
+          const sig = `${candidate.title.toLowerCase().trim()}|${candidate.host_country ?? ''}`;
+          if (!bySignature.has(sig)) bySignature.set(sig, candidate);
+        }
+      }
+    } catch {
+      // skip failed chunk
+    }
+    if (i + 1 < chunks.length) await new Promise((r) => setTimeout(r, 1500));
+  }
+
+  return [...bySignature.values()];
+}
+
+function chunkText(text: string, size: number): string[] {
+  if (text.length <= size) return [text];
+  const chunks: string[] = [];
+  // Prefer to break on paragraph boundaries near the chunk size.
+  let start = 0;
+  while (start < text.length) {
+    let end = Math.min(start + size, text.length);
+    if (end < text.length) {
+      const nl = text.lastIndexOf('\n', end);
+      if (nl > start + size * 0.5) end = nl;
+    }
+    chunks.push(text.slice(start, end));
+    start = end;
+  }
+  return chunks;
+}
+
 export async function generateDealSummary(
   dealTitle: string,
   hostCountry: string,
   sponsoringState: string | null,
   sector: string,
-  sources: Source[]
+  sources: Array<{ url: string; title: string | null; published_at: string | null }>
 ): Promise<{ executive_summary: string; us_diplomatic_context: string } | null> {
   if (!isLlmAvailable() || sources.length === 0) return null;
 

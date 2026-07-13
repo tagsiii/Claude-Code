@@ -24,6 +24,16 @@ A full-stack web application that continuously scans open-source global news and
 
 ---
 
+### Step 1b — Enable document uploads (optional but recommended)
+
+To use the **Documents** feature (upload Word/Excel/PDF/CSV/text files and fold them
+into the transaction tracker), also run `lib/db/documents.sql` in the SQL Editor.
+It creates the `documents` table and a private Supabase Storage bucket named
+`deal-documents`. The app reads/writes that bucket with the `service_role` key, so no
+extra Storage policies are needed.
+
+---
+
 ## Step 2 — Environment variables
 
 Copy `.env.example` to `.env.local` and fill in all values:

@@ -25,6 +25,12 @@ export default async function DashboardLayout({ children }: { children: React.Re
           </div>
           <div className="flex items-center gap-4">
             <Link
+              href="/dashboard/documents"
+              className="text-slate-400 hover:text-slate-200 text-xs font-medium transition-colors"
+            >
+              Documents
+            </Link>
+            <Link
               href="/dashboard/config"
               className="text-slate-400 hover:text-slate-200 text-xs font-medium transition-colors"
             >

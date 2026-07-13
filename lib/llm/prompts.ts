@@ -48,6 +48,60 @@ DATA INTEGRITY RULES — CRITICAL:
 
 Write in clear, direct prose. No bullet points in summaries. Professional analytical style.`;
 
+export const DOCUMENT_EXTRACTION_SYSTEM = `You are a senior economic statecraft analyst at a US policy institution. You are reading the FULL TEXT of an analyst-provided document (a report, spreadsheet export, memo, or briefing). Your task is to identify DISTINCT, SPECIFIC cross-border transactions where a state or state-backed entity uses economic tools to advance geopolitical influence.
+
+Unlike headline scanning, you have full document text — extract richer detail (values, sponsors, dates, lifecycle signals) where the document states them.
+
+Priority sectors (in order):
+1. Strategic infrastructure: ports, rail, airports, logistics hubs, special economic zones
+2. Digital connectivity: 5G/telecom, data centers, subsea/terrestrial cables, satellite stations, smart-city systems
+3. Energy & electricity: generation, grids/transmission, nuclear, LNG terminals, pipelines, critical-mineral processing
+4. Cybersecurity of critical infrastructure: national networks, SCADA/OT, surveillance systems, sovereign cloud
+
+Focus on state-backed actors: China (policy banks: China Exim Bank, CDB; SOEs; Silk Road Fund), Russia (Gazprom, Rosatom), Gulf sovereign funds (ADIA, QIA, PIF, Mubadala), and other state-controlled entities.
+
+DATA INTEGRITY RULES — CRITICAL:
+- Never fabricate deals, sponsors, figures, or quotes; extract only what the document states
+- If a field cannot be determined from the document, use null
+- Distinguish "reported"/"proposed" from "confirmed"/"signed"
+- A single document may describe several distinct deals, or none at all
+
+Return a JSON array (possibly empty). Each element is a distinct deal with this schema:
+{
+  "title": "Descriptive deal name",
+  "sponsoring_state": "Country name or null",
+  "host_country": "Country where deal occurs or null",
+  "host_region": "Africa|South Asia|Southeast Asia|Central Asia|Pacific|Latin America|MENA|Europe|Other or null",
+  "sector": "strategic_infrastructure|digital_connectivity|energy|cybersecurity|other",
+  "subsector": "More specific (e.g., 'port', '5G network', 'nuclear power') or null",
+  "lifecycle_stage": "rumored|exploratory_mou|negotiation|signed|financing_secured|under_construction",
+  "lifecycle_reasoning": "1-sentence explanation citing specific language from the document",
+  "rom_value_usd": integer in USD or null,
+  "rom_basis": "How you estimated the value, or null",
+  "sponsoring_entities": [{"name": "...", "type": "policy_bank|soe|sovereign_fund|commercial|unknown", "country": "...", "commitment_status": "rumored|identified|committed|signed"}],
+  "financial_sponsors": [same schema as sponsoring_entities],
+  "is_confirmed": true or false,
+  "confidence": 0.0-1.0,
+  "source_urls": [],
+  "key_dates": [{"date": "YYYY-MM-DD or YYYY-MM or YYYY", "description": "event"}]
+}
+
+Leave "source_urls" as an empty array — the source is the uploaded document itself.
+Return ONLY valid JSON array. No markdown, no explanation outside the JSON.`;
+
+export function buildDocumentExtractionPrompt(
+  filename: string,
+  text: string,
+  notes?: string | null,
+  part?: { index: number; total: number }
+): string {
+  const header = part && part.total > 1
+    ? `Document: "${filename}" (part ${part.index} of ${part.total})`
+    : `Document: "${filename}"`;
+  const noteLine = notes ? `\nAnalyst note: ${notes}` : '';
+  return `${header}${noteLine}\n\nFULL TEXT:\n${text}\n\nExtract all distinct economic statecraft transactions described above as a JSON array.`;
+}
+
 export function buildExtractionPrompt(articles: Array<{ url: string; title: string; published_at: string | null }>): string {
   const lines = articles
     .map((a, i) => `[${i + 1}] ${a.title} | ${a.published_at?.slice(0, 10) ?? 'undated'} | ${a.url}`)

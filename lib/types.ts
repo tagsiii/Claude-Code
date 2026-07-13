@@ -97,6 +97,39 @@ export interface Deal {
   events?: DealEvent[];
 }
 
+export type DocumentKind = 'word' | 'excel' | 'pdf' | 'csv' | 'text' | 'other';
+
+export type DocumentStatus =
+  | 'uploaded'
+  | 'parsing'
+  | 'parsed'
+  | 'analyzing'
+  | 'analyzed'
+  | 'error';
+
+export interface DocumentRecord {
+  id: string;
+  filename: string;
+  mime_type: string;
+  byte_size: number;
+  sha256: string | null;
+  storage_path: string;
+  kind: DocumentKind;
+  parsed_text: string | null;
+  page_count: number | null;
+  char_count: number;
+  status: DocumentStatus;
+  error_message: string | null;
+  source_id: string | null;
+  deals_found: number;
+  deals_created: number;
+  deals_updated: number;
+  notes: string | null;
+  uploaded_by: string | null;
+  created_at: string;
+  analyzed_at: string | null;
+}
+
 export interface ScoreWeight {
   id: string;
   name: string;

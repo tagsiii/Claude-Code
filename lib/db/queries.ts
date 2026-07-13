@@ -1,5 +1,5 @@
 import { db } from './client';
-import type { Deal, Source, DealEvent, ScoreWeight, ConnectorConfig, IngestLog, DashboardFilters } from '../types';
+import type { Deal, Source, DealEvent, ScoreWeight, ConnectorConfig, IngestLog, DashboardFilters, DocumentRecord } from '../types';
 
 // ─── Deals ────────────────────────────────────────────────────────────────────
 
@@ -234,6 +234,46 @@ export async function getTopDealsByScore(limit = 3): Promise<Deal[]> {
     .limit(limit);
   if (error) throw error;
   return (data ?? []) as Deal[];
+}
+
+// ─── Documents ────────────────────────────────────────────────────────────────
+
+export async function createDocument(doc: Partial<DocumentRecord>): Promise<DocumentRecord> {
+  const { data, error } = await db.from('documents').insert(doc).select().single();
+  if (error) throw error;
+  return data as DocumentRecord;
+}
+
+export async function updateDocument(id: string, update: Partial<DocumentRecord>): Promise<void> {
+  const { error } = await db.from('documents').update(update).eq('id', id);
+  if (error) throw error;
+}
+
+export async function getDocumentById(id: string): Promise<DocumentRecord | null> {
+  const { data, error } = await db.from('documents').select('*').eq('id', id).single();
+  if (error) return null;
+  return data as DocumentRecord;
+}
+
+// List documents without the (potentially large) parsed_text blob.
+export async function getDocuments(limit = 100): Promise<Omit<DocumentRecord, 'parsed_text'>[]> {
+  const { data, error } = await db
+    .from('documents')
+    .select('id, filename, mime_type, byte_size, sha256, storage_path, kind, page_count, char_count, status, error_message, source_id, deals_found, deals_created, deals_updated, notes, uploaded_by, created_at, analyzed_at')
+    .order('created_at', { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data ?? []) as Omit<DocumentRecord, 'parsed_text'>[];
+}
+
+export async function getDocumentBySha(sha256: string): Promise<DocumentRecord | null> {
+  const { data } = await db.from('documents').select('*').eq('sha256', sha256).maybeSingle();
+  return (data as DocumentRecord) ?? null;
+}
+
+export async function deleteDocument(id: string): Promise<void> {
+  const { error } = await db.from('documents').delete().eq('id', id);
+  if (error) throw error;
 }
 
 // ─── Users ────────────────────────────────────────────────────────────────────
