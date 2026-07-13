@@ -3,6 +3,7 @@ import { getDeals, getLatestSuccessfulIngest } from '@/lib/db/queries';
 import { DealTable } from '@/components/DealTable';
 import { DashboardControls } from '@/components/DashboardControls';
 import { IngestPanel } from '@/components/IngestPanel';
+import { ExportDialog } from '@/components/ExportDialog';
 import { isLlmAvailable } from '@/lib/llm/client';
 import { isEmailAvailable } from '@/lib/email/client';
 
@@ -58,7 +59,10 @@ export default async function DashboardPage({
             )}
           </p>
         </div>
-        <IngestPanel />
+        <div className="flex items-center gap-2">
+          <ExportDialog filters={searchParams} dealCount={deals.length} />
+          <IngestPanel />
+        </div>
       </div>
 
       {/* Filters */}

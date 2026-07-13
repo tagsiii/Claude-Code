@@ -179,6 +179,17 @@ export interface DashboardFilters {
   sort_dir?: 'asc' | 'desc';
 }
 
+export type ExportFormat = 'xlsx' | 'docx' | 'pdf';
+
+export interface ExportConfig {
+  format: ExportFormat;
+  columns: string[];              // field keys to include as table columns
+  includeSummary: boolean;        // executive summary (docx/pdf narrative)
+  includeDiplomatic: boolean;     // US diplomatic context (docx/pdf narrative)
+  includeScoreBreakdown: boolean; // per-sub-score reasoning (docx/pdf narrative)
+  title?: string;                 // report title
+}
+
 // Raw article from connector before LLM processing
 export interface RawArticle {
   url: string;

@@ -1,6 +1,6 @@
 const nextConfig = {
   experimental: {
-    serverComponentsExternalPackages: ['@anthropic-ai/sdk', 'pdf-parse', 'mammoth', 'xlsx'],
+    serverComponentsExternalPackages: ['@anthropic-ai/sdk', 'pdf-parse', 'mammoth', 'xlsx', 'pdfkit', 'docx'],
     // Never reuse the client-side router cache for dynamic routes — always refetch
     // on navigation so newly ingested deals appear immediately without a manual scan.
     staleTimes: {
