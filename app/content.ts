@@ -5,7 +5,7 @@
 // for normal copy edits. (Ask Claude Code: "update my content.ts")
 // ─────────────────────────────────────────────────────────────
 
-// Site-wide background. Options: "" (plain), "aurora", "grain", "grid", "silk"
+// Site-wide background. Options: "" (plain), "cosmos", "ridge", "ocean", "dawn"
 export const siteBackground = "";
 
 export const content = {

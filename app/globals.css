@@ -793,8 +793,10 @@ button { font-family: inherit; }
 
 /* ─────────────────────────────────────────────────────────────
    Site backgrounds — set `siteBackground` in app/content.ts to
-   "aurora" | "grain" | "grid" | "silk" (or "" for plain).
-   All four adapt to light/dark via the color tokens.
+   "cosmos" | "ridge" | "ocean" | "dawn" (or "" for plain).
+   All four adapt to light/dark via the color tokens. Each stack's
+   first layer is a translucent veil of the page color so text
+   contrast holds in both themes.
    ───────────────────────────────────────────────────────────── */
 body[data-bg]::before {
   content: "";
@@ -812,49 +814,59 @@ body[data-bg] .section--contact {
 body[data-bg] .dash { background: transparent; }
 body[data-bg] .auth { background: transparent; }
 
-/* 1 · Aurora — Big Sur-style soft color mesh */
-body[data-bg="aurora"]::before {
-  background:
-    radial-gradient(42% 50% at 18% 12%, color-mix(in srgb, var(--navy) 24%, transparent), transparent 70%),
-    radial-gradient(50% 60% at 85% 6%, color-mix(in srgb, #6aa5ff 26%, transparent), transparent 70%),
-    radial-gradient(55% 65% at 78% 88%, color-mix(in srgb, #9db8e8 22%, transparent), transparent 72%),
-    radial-gradient(40% 48% at 6% 92%, color-mix(in srgb, var(--navy) 16%, transparent), transparent 70%),
-    var(--bg);
+/* 1 · Cosmos — starfield under navy and violet nebulae */
+body[data-bg="cosmos"]::before {
+  background-color: var(--bg);
+  background-image:
+    linear-gradient(
+      color-mix(in srgb, var(--bg) 35%, transparent),
+      color-mix(in srgb, var(--bg) 35%, transparent)),
+    radial-gradient(55% 60% at 78% 12%, color-mix(in srgb, var(--navy) 38%, transparent), transparent 70%),
+    radial-gradient(45% 55% at 12% 80%, color-mix(in srgb, #6b4fd8 24%, transparent), transparent 70%),
+    radial-gradient(30% 35% at 45% 40%, color-mix(in srgb, #38bdf8 12%, transparent), transparent 70%),
+    radial-gradient(1.5px 1.5px at 22% 28%, color-mix(in srgb, var(--ink) 85%, transparent) 50%, transparent 51%),
+    radial-gradient(1px 1px at 68% 62%, color-mix(in srgb, var(--ink) 70%, transparent) 50%, transparent 51%),
+    radial-gradient(2px 2px at 84% 18%, color-mix(in srgb, var(--ink) 90%, transparent) 50%, transparent 51%),
+    radial-gradient(1px 1px at 38% 78%, color-mix(in srgb, var(--ink) 60%, transparent) 50%, transparent 51%);
+  background-size:
+    auto, auto, auto, auto,
+    290px 290px, 170px 170px, 470px 470px, 220px 220px;
 }
 
-/* 2 · Grain — graphite gradient with fine photographic noise */
-body[data-bg="grain"]::before {
-  background:
-    radial-gradient(110% 80% at 50% 0%, color-mix(in srgb, var(--navy) 13%, transparent), transparent 62%),
-    linear-gradient(180deg, var(--bg-alt), var(--bg) 45%);
-}
-body[data-bg="grain"]::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0.5 0 0 0 0 0.5 0 0 0 0 0.55 0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)'/%3E%3C/svg%3E");
-}
-
-/* 3 · Grid — fine blueprint lines under a navy crown glow */
-body[data-bg="grid"]::before {
-  background:
-    radial-gradient(55% 42% at 50% 0%, color-mix(in srgb, var(--navy) 15%, transparent), transparent 72%),
-    repeating-linear-gradient(0deg, transparent, transparent 47px,
-      color-mix(in srgb, var(--ink) 6%, transparent) 47px,
-      color-mix(in srgb, var(--ink) 6%, transparent) 48px),
-    repeating-linear-gradient(90deg, transparent, transparent 47px,
-      color-mix(in srgb, var(--ink) 6%, transparent) 47px,
-      color-mix(in srgb, var(--ink) 6%, transparent) 48px),
-    var(--bg);
+/* 2 · Ridge — layered mountain silhouettes under a high sky */
+body[data-bg="ridge"]::before {
+  background-color: var(--bg);
+  background-image:
+    linear-gradient(
+      color-mix(in srgb, var(--bg) 30%, transparent),
+      color-mix(in srgb, var(--bg) 30%, transparent)),
+    radial-gradient(70% 45% at 50% 0%, color-mix(in srgb, var(--navy) 14%, transparent), transparent 72%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 300' preserveAspectRatio='none'%3E%3Cpath d='M0 300 L0 190 L140 110 L290 205 L430 80 L590 195 L760 100 L930 215 L1070 130 L1200 185 L1200 300 Z' fill='%231d3a6e' fill-opacity='0.14'/%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 300' preserveAspectRatio='none'%3E%3Cpath d='M0 300 L0 230 L180 150 L340 240 L520 130 L700 235 L880 155 L1050 245 L1200 175 L1200 300 Z' fill='%231d3a6e' fill-opacity='0.26'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: 0 0, 0 0, left bottom, left bottom;
+  background-size: auto, auto, 100% 46%, 100% 30%;
 }
 
-/* 4 · Silk — smooth diagonal bands, event-invite style */
-body[data-bg="silk"]::before {
+/* 3 · Ocean — sea-glass glow rising from the deep */
+body[data-bg="ocean"]::before {
   background:
-    linear-gradient(115deg, transparent 26%, color-mix(in srgb, var(--navy) 11%, transparent) 40%, transparent 54%),
-    linear-gradient(115deg, transparent 46%, color-mix(in srgb, #7ea3e0 15%, transparent) 62%, transparent 78%),
-    linear-gradient(115deg, transparent 68%, color-mix(in srgb, var(--navy) 9%, transparent) 82%, transparent 96%),
-    linear-gradient(180deg, var(--bg-alt), var(--bg));
+    linear-gradient(
+      color-mix(in srgb, var(--bg) 32%, transparent),
+      color-mix(in srgb, var(--bg) 32%, transparent)),
+    radial-gradient(75% 55% at 50% 108%, color-mix(in srgb, #0e7490 32%, transparent), transparent 74%),
+    radial-gradient(50% 40% at 20% 98%, color-mix(in srgb, var(--navy) 28%, transparent), transparent 70%),
+    radial-gradient(55% 42% at 84% 102%, color-mix(in srgb, #38bdf8 20%, transparent), transparent 70%),
+    linear-gradient(180deg, var(--bg-alt), var(--bg) 55%);
+}
+
+/* 4 · Dawn — warm sunrise low on a navy-tinted sky */
+body[data-bg="dawn"]::before {
+  background:
+    linear-gradient(
+      color-mix(in srgb, var(--bg) 32%, transparent),
+      color-mix(in srgb, var(--bg) 32%, transparent)),
+    radial-gradient(42% 30% at 50% 92%, color-mix(in srgb, #f59e0b 30%, transparent), transparent 70%),
+    radial-gradient(85% 55% at 50% 105%, color-mix(in srgb, #fb7185 16%, transparent), transparent 75%),
+    linear-gradient(180deg, color-mix(in srgb, var(--navy) 18%, var(--bg)), var(--bg) 62%);
 }
