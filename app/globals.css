@@ -677,51 +677,52 @@ button { font-family: inherit; }
 .dash__main {
   max-width: var(--maxw);
   margin: 0 auto;
-  padding: 48px 24px 100px;
+  padding: 32px 24px 80px;
 }
-.dash__head { margin-bottom: 32px; }
+.dash__head { margin-bottom: 20px; }
 .dash__greeting {
-  font-size: clamp(28px, 4.5vw, 44px);
+  font-size: clamp(24px, 4vw, 34px);
   font-weight: 700;
   letter-spacing: -0.03em;
-  margin: 0 0 6px;
+  margin: 0 0 4px;
 }
-.dash__subhead { font-size: 17px; color: var(--ink-soft); margin: 0; }
+.dash__subhead { font-size: 15px; color: var(--ink-soft); margin: 0; }
 
 .dash__grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   grid-auto-flow: dense;
-  gap: 20px;
+  gap: 12px;
 }
-@media (max-width: 960px) { .dash__grid { grid-template-columns: repeat(2, 1fr); } }
-@media (max-width: 620px) { .dash__grid { grid-template-columns: 1fr; } }
+@media (max-width: 1080px) { .dash__grid { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 860px) { .dash__grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 560px) { .dash__grid { grid-template-columns: 1fr; } }
 
 .tile {
   display: flex;
   flex-direction: column;
   background: var(--bg);
   border: 1px solid var(--silver);
-  border-radius: var(--radius);
-  padding: 22px 24px 20px;
+  border-radius: 14px;
+  padding: 14px 16px 12px;
   transition: transform 0.3s var(--ease), box-shadow 0.3s var(--ease),
     border-color 0.3s var(--ease);
 }
 .tile--wide { grid-column: span 2; }
-@media (max-width: 620px) { .tile--wide { grid-column: span 1; } }
+@media (max-width: 560px) { .tile--wide { grid-column: span 1; } }
 
 .tile__kicker {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--navy);
 }
 .tile__blurb {
-  font-size: 14px;
+  font-size: 12.5px;
   color: var(--ink-soft);
-  margin: 8px 0 14px;
-  line-height: 1.5;
+  margin: 6px 0 10px;
+  line-height: 1.45;
 }
 .tile__list, .tile__rows {
   list-style: none;
@@ -733,25 +734,25 @@ button { font-family: inherit; }
 .tile__list li {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 9px 0;
+  gap: 1px;
+  padding: 7px 0;
   border-top: 1px solid var(--silver-soft);
-  font-size: 14px;
+  font-size: 13px;
 }
 .tile__list a { color: var(--ink); }
 .tile__list a:hover { color: var(--navy); }
-.tile__meta { font-size: 12.5px; color: var(--ink-soft); }
+.tile__meta { font-size: 11.5px; color: var(--ink-soft); }
 .tile__rows li {
   display: flex;
-  gap: 12px;
+  gap: 10px;
   align-items: baseline;
-  padding: 8px 0;
+  padding: 6px 0;
   border-top: 1px solid var(--silver-soft);
-  font-size: 14px;
+  font-size: 13px;
 }
 .tile__day {
-  flex: 0 0 38px;
-  font-size: 12px;
+  flex: 0 0 34px;
+  font-size: 10.5px;
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -759,66 +760,101 @@ button { font-family: inherit; }
 }
 .tile__soon {
   margin-top: auto;
-  padding-top: 14px;
-  font-size: 12px;
+  padding-top: 10px;
+  font-size: 11px;
   color: var(--ink-soft);
   font-style: italic;
 }
 
-/* Statecraft featured tile */
-.tile--statecraft {
-  background:
-    radial-gradient(90% 140% at 20% 0%, color-mix(in srgb, var(--navy) 30%, transparent), transparent 65%),
-    linear-gradient(135deg, var(--navy), color-mix(in srgb, var(--navy) 50%, #000));
-  border-color: transparent;
-  color: var(--on-navy);
-}
-.tile--statecraft .tile__kicker { color: color-mix(in srgb, var(--on-navy) 75%, transparent); }
-.tile--statecraft .tile__blurb { color: color-mix(in srgb, var(--on-navy) 80%, transparent); }
-.tile--statecraft:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 20px 50px -20px color-mix(in srgb, var(--navy) 80%, transparent);
-}
-.tile__top {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-.tile__lock { font-size: 15px; }
-.tile__title {
-  font-size: clamp(22px, 3vw, 30px);
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  margin: 10px 0 8px;
-}
-.tile__cta {
-  margin-top: auto;
-  padding-top: 16px;
-  font-size: 15px;
-  font-weight: 500;
-}
-
 /* Calendar embed */
 .tile__embed {
-  border-radius: 12px;
+  border-radius: 10px;
   overflow: hidden;
   border: 1px solid var(--silver-soft);
   background: var(--bg-alt);
 }
-.tile__embed iframe { display: block; width: 100%; height: 340px; border: 0; }
+.tile__embed iframe { display: block; width: 100%; height: 260px; border: 0; }
 .tile__embed--empty {
-  padding: 36px 24px;
+  padding: 22px 16px;
   text-align: center;
 }
 .tile__embed--empty p {
-  font-size: 14px;
+  font-size: 12.5px;
   color: var(--ink-soft);
-  margin: 0 0 10px;
+  margin: 0 0 8px;
 }
 .tile__embed--empty code {
-  font-size: 12.5px;
+  font-size: 11.5px;
   color: var(--navy);
   background: color-mix(in srgb, var(--navy) 8%, transparent);
-  padding: 4px 10px;
+  padding: 3px 8px;
   border-radius: 6px;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Site backgrounds — set `siteBackground` in app/content.ts to
+   "aurora" | "grain" | "grid" | "silk" (or "" for plain).
+   All four adapt to light/dark via the color tokens.
+   ───────────────────────────────────────────────────────────── */
+body[data-bg]::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+/* Let the backdrop show through page-level fills */
+body[data-bg] .hero__bg { display: none; }
+body[data-bg] .section--alt,
+body[data-bg] .section--contact {
+  background: color-mix(in srgb, var(--bg-alt) 55%, transparent);
+}
+body[data-bg] .dash { background: transparent; }
+body[data-bg] .auth { background: transparent; }
+
+/* 1 · Aurora — Big Sur-style soft color mesh */
+body[data-bg="aurora"]::before {
+  background:
+    radial-gradient(42% 50% at 18% 12%, color-mix(in srgb, var(--navy) 24%, transparent), transparent 70%),
+    radial-gradient(50% 60% at 85% 6%, color-mix(in srgb, #6aa5ff 26%, transparent), transparent 70%),
+    radial-gradient(55% 65% at 78% 88%, color-mix(in srgb, #9db8e8 22%, transparent), transparent 72%),
+    radial-gradient(40% 48% at 6% 92%, color-mix(in srgb, var(--navy) 16%, transparent), transparent 70%),
+    var(--bg);
+}
+
+/* 2 · Grain — graphite gradient with fine photographic noise */
+body[data-bg="grain"]::before {
+  background:
+    radial-gradient(110% 80% at 50% 0%, color-mix(in srgb, var(--navy) 13%, transparent), transparent 62%),
+    linear-gradient(180deg, var(--bg-alt), var(--bg) 45%);
+}
+body[data-bg="grain"]::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0.5 0 0 0 0 0.5 0 0 0 0 0.55 0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* 3 · Grid — fine blueprint lines under a navy crown glow */
+body[data-bg="grid"]::before {
+  background:
+    radial-gradient(55% 42% at 50% 0%, color-mix(in srgb, var(--navy) 15%, transparent), transparent 72%),
+    repeating-linear-gradient(0deg, transparent, transparent 47px,
+      color-mix(in srgb, var(--ink) 6%, transparent) 47px,
+      color-mix(in srgb, var(--ink) 6%, transparent) 48px),
+    repeating-linear-gradient(90deg, transparent, transparent 47px,
+      color-mix(in srgb, var(--ink) 6%, transparent) 47px,
+      color-mix(in srgb, var(--ink) 6%, transparent) 48px),
+    var(--bg);
+}
+
+/* 4 · Silk — smooth diagonal bands, event-invite style */
+body[data-bg="silk"]::before {
+  background:
+    linear-gradient(115deg, transparent 26%, color-mix(in srgb, var(--navy) 11%, transparent) 40%, transparent 54%),
+    linear-gradient(115deg, transparent 46%, color-mix(in srgb, #7ea3e0 15%, transparent) 62%, transparent 78%),
+    linear-gradient(115deg, transparent 68%, color-mix(in srgb, var(--navy) 9%, transparent) 82%, transparent 96%),
+    linear-gradient(180deg, var(--bg-alt), var(--bg));
 }

@@ -5,6 +5,9 @@
 // for normal copy edits. (Ask Claude Code: "update my content.ts")
 // ─────────────────────────────────────────────────────────────
 
+// Site-wide background. Options: "" (plain), "aurora", "grain", "grid", "silk"
+export const siteBackground = "";
+
 export const content = {
   // Shows in the browser tab + social previews
   meta: {
@@ -229,10 +232,6 @@ export const dashboard = {
     ],
   },
 
-  statecraft: {
-    title: "Economic Statecraft Monitor",
-    blurb:
-      "Your monitor will live here on this domain, behind its own login. This tile is the placeholder entry point.",
-    href: "/dashboard/statecraft",
-  },
+  // Economic Statecraft Monitor: intentionally offline for now.
+  // When ready, restore the tile from git history (commit 96406af).
 };

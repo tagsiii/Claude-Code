@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { dashboard } from "../content";
 import LogoutButton from "./LogoutButton";
+// The Economic Statecraft Monitor tile is intentionally offline for now.
+// Restore it from git history when ready to bring the monitor online.
 
 export const metadata = { title: "Dashboard — Trey Seabrooke" };
 
@@ -26,22 +28,6 @@ export default function Dashboard() {
         </div>
 
         <div className="dash__grid">
-          {/* Economic Statecraft Monitor — featured tile */}
-          <Link
-            href={d.statecraft.href}
-            className="tile tile--wide tile--statecraft"
-          >
-            <div className="tile__top">
-              <span className="tile__kicker">Featured tool</span>
-              <span className="tile__lock" aria-hidden="true">
-                🔒
-              </span>
-            </div>
-            <h2 className="tile__title">{d.statecraft.title}</h2>
-            <p className="tile__blurb">{d.statecraft.blurb}</p>
-            <span className="tile__cta">Open monitor →</span>
-          </Link>
-
           {/* Interesting Reads */}
           <section className="tile">
             <span className="tile__kicker">{d.reads.title}</span>
