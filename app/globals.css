@@ -3,26 +3,59 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+  Apple-style design tokens. Light is the default; `.dark` on <html> swaps to the
+  dark material palette. All components reference these semantic tokens so both
+  themes stay consistent.
+*/
 @layer base {
   :root {
-    --background: 222 47% 6%;
-    --foreground: 210 40% 90%;
-    --card: 222 47% 10%;
-    --card-foreground: 210 40% 90%;
-    --border: 217 33% 20%;
-    --input: 217 33% 15%;
-    --ring: 213 94% 68%;
-    --primary: 213 94% 68%;
-    --primary-foreground: 222 47% 4%;
-    --secondary: 217 33% 17%;
-    --secondary-foreground: 210 40% 70%;
-    --muted: 217 33% 15%;
-    --muted-foreground: 215 20% 50%;
-    --accent: 213 94% 30%;
-    --accent-foreground: 210 40% 90%;
-    --destructive: 0 62% 50%;
-    --destructive-foreground: 210 40% 90%;
-    --radius: 0.5rem;
+    --background: 240 6% 96%;        /* #f4f4f6 page */
+    --foreground: 240 6% 10%;        /* near-black text */
+    --card: 0 0% 100%;               /* white surfaces */
+    --card-foreground: 240 6% 10%;
+    --muted: 240 6% 96%;
+    --muted-foreground: 240 3% 46%;  /* secondary text */
+    --secondary: 240 6% 93%;         /* chips / subtle fills */
+    --secondary-foreground: 240 5% 20%;
+    --border: 240 6% 88%;            /* hairline */
+    --input: 240 6% 89%;
+    --ring: 211 100% 45%;
+    --primary: 211 100% 45%;         /* Apple blue #0071e3 */
+    --primary-foreground: 0 0% 100%;
+    --accent: 211 100% 45%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 145 63% 37%;
+    --warning: 35 92% 45%;
+    --radius: 0.875rem;
+    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.04), 0 4px 16px rgba(0, 0, 0, 0.04);
+    --shadow-pop: 0 8px 30px rgba(0, 0, 0, 0.10);
+  }
+
+  .dark {
+    --background: 240 6% 7%;         /* #111114 */
+    --foreground: 240 6% 96%;
+    --card: 240 5% 11%;              /* #1b1b1e */
+    --card-foreground: 240 6% 96%;
+    --muted: 240 5% 14%;
+    --muted-foreground: 240 4% 62%;
+    --secondary: 240 4% 16%;
+    --secondary-foreground: 240 6% 90%;
+    --border: 240 4% 20%;
+    --input: 240 4% 18%;
+    --ring: 211 100% 55%;
+    --primary: 211 100% 55%;         /* Apple blue (dark) */
+    --primary-foreground: 0 0% 100%;
+    --accent: 211 100% 55%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 72% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 145 55% 48%;
+    --warning: 35 92% 55%;
+    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 20px rgba(0, 0, 0, 0.35);
+    --shadow-pop: 0 10px 40px rgba(0, 0, 0, 0.5);
   }
 }
 
@@ -30,20 +63,48 @@
   * {
     @apply border-border;
   }
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
   body {
     @apply bg-background text-foreground;
-    background-color: #070d18;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display',
+      'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+    letter-spacing: -0.011em;
+  }
+  h1, h2, h3, h4 {
+    letter-spacing: -0.02em;
   }
   ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+    width: 10px;
+    height: 10px;
   }
   ::-webkit-scrollbar-track {
-    background: #0f172a;
+    background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: #334155;
-    border-radius: 3px;
+    background: hsl(var(--muted-foreground) / 0.3);
+    border-radius: 6px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.5);
+    background-clip: content-box;
+  }
+}
+
+@layer components {
+  /* Frosted "material" surface used by the nav bar. */
+  .material {
+    background-color: hsl(var(--card) / 0.72);
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+  }
+  .card {
+    @apply bg-card border border-border rounded-2xl;
+    box-shadow: var(--shadow-card);
   }
 }
 
@@ -52,7 +113,13 @@
     text-wrap: balance;
   }
   .font-mono-numbers {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
     font-variant-numeric: tabular-nums;
+  }
+  .shadow-card {
+    box-shadow: var(--shadow-card);
+  }
+  .shadow-pop {
+    box-shadow: var(--shadow-pop);
   }
 }

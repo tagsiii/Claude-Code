@@ -7,10 +7,10 @@ export default function DocumentsPage() {
   const llmAvailable = isLlmAvailable();
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
+    <div className="max-w-3xl mx-auto space-y-6 animate-fade-in">
       <div>
-        <h1 className="text-xl font-bold text-slate-100">Documents</h1>
-        <p className="text-slate-500 text-sm mt-1">
+        <h1 className="text-2xl font-semibold text-foreground tracking-tight">Documents</h1>
+        <p className="text-muted-foreground text-sm mt-1">
           Upload Word, Excel, PDF, or text files. Each document is parsed, then fed through the same
           extraction pipeline as the news connectors — creating new deals or enriching existing ones as a
           tier-1 (primary) source.
@@ -18,9 +18,9 @@ export default function DocumentsPage() {
       </div>
 
       {!llmAvailable && (
-        <div className="bg-yellow-950 border border-yellow-800 rounded-lg px-4 py-3 text-yellow-300 text-sm">
-          <span className="font-semibold">⚠ ANTHROPIC_API_KEY not set</span>
-          <span className="text-yellow-500"> — you can upload and store files, but the Analyze step needs the API key to extract deals.</span>
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300">
+          <span className="font-semibold">ANTHROPIC_API_KEY not set</span>
+          <span className="opacity-80"> — you can upload and store files, but the Analyze step needs the API key to extract deals.</span>
         </div>
       )}
 

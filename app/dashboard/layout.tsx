@@ -3,47 +3,46 @@ import { authOptions } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { SignOutButton } from '@/components/SignOutButton';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await getServerSession(authOptions);
   if (!session) redirect('/login');
 
   return (
-    <div className="min-h-screen bg-[#070d18]">
-      {/* Top nav */}
-      <nav className="border-b border-slate-800 bg-slate-950/80 backdrop-blur-sm sticky top-0 z-50">
-        <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
+    <div className="min-h-screen bg-background">
+      {/* Top nav — frosted material */}
+      <nav className="material sticky top-0 z-50 border-b border-border">
+        <div className="max-w-screen-xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse-slow" />
-              <span className="text-green-400 text-xs font-mono tracking-widest">LIVE</span>
-            </div>
-            <div className="h-4 w-px bg-slate-700" />
-            <Link href="/dashboard" className="text-slate-100 font-semibold text-sm tracking-tight">
+            <Link href="/dashboard" className="font-semibold text-[15px] tracking-tight text-foreground">
               Economic Statecraft Monitor
             </Link>
           </div>
-          <div className="flex items-center gap-4">
-            <Link
-              href="/dashboard/documents"
-              className="text-slate-400 hover:text-slate-200 text-xs font-medium transition-colors"
-            >
-              Documents
-            </Link>
-            <Link
-              href="/dashboard/config"
-              className="text-slate-400 hover:text-slate-200 text-xs font-medium transition-colors"
-            >
-              Config
-            </Link>
-            <span className="text-slate-600 text-xs hidden sm:block">{session.user?.email}</span>
+          <div className="flex items-center gap-1 sm:gap-2">
+            <NavLink href="/dashboard/documents">Documents</NavLink>
+            <NavLink href="/dashboard/config">Config</NavLink>
+            <div className="mx-1 h-5 w-px bg-border hidden sm:block" />
+            <ThemeToggle />
+            <span className="text-muted-foreground text-xs hidden md:block ml-1">{session.user?.email}</span>
             <SignOutButton />
           </div>
         </div>
       </nav>
 
       {/* Content */}
-      <main className="max-w-screen-2xl mx-auto px-4 sm:px-6 py-6">{children}</main>
+      <main className="max-w-screen-xl mx-auto px-4 sm:px-6 py-8">{children}</main>
     </div>
+  );
+}
+
+function NavLink({ href, children }: { href: string; children: React.ReactNode }) {
+  return (
+    <Link
+      href={href}
+      className="text-muted-foreground hover:text-foreground text-sm font-medium px-2.5 py-1.5 rounded-lg hover:bg-secondary transition-colors"
+    >
+      {children}
+    </Link>
   );
 }

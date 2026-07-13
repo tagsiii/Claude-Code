@@ -11,10 +11,10 @@ export default async function ConfigPage() {
   ]);
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
+    <div className="max-w-3xl mx-auto space-y-6 animate-fade-in">
       <div>
-        <h1 className="text-xl font-bold text-slate-100">Configuration</h1>
-        <p className="text-slate-500 text-sm mt-1">Manage scoring weights, data connectors, and pipeline history.</p>
+        <h1 className="text-2xl font-semibold text-foreground tracking-tight">Configuration</h1>
+        <p className="text-muted-foreground text-sm mt-1">Manage scoring weights, data connectors, and pipeline history.</p>
       </div>
       <ConfigPanel weights={weights} connectors={connectors} logs={logs} />
     </div>

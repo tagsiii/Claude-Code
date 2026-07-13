@@ -1,6 +1,6 @@
 import { Suspense } from 'react';
 import { getDeals, getLatestSuccessfulIngest } from '@/lib/db/queries';
-import { DealGrid } from '@/components/DealGrid';
+import { DealTable } from '@/components/DealTable';
 import { DashboardControls } from '@/components/DashboardControls';
 import { IngestPanel } from '@/components/IngestPanel';
 import { isLlmAvailable } from '@/lib/llm/client';
@@ -31,32 +31,30 @@ export default async function DashboardPage({
   const emailAvailable = isEmailAvailable();
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       {/* Status banners */}
       {!llmAvailable && (
-        <div className="bg-yellow-950 border border-yellow-800 rounded-lg px-4 py-3 text-yellow-300 text-sm flex items-center gap-2">
-          <span className="font-semibold">⚠ ANTHROPIC_API_KEY not set</span>
-          <span className="text-yellow-500">— Deal extraction and summaries will be skipped. Add the key in your environment to enable AI analysis.</span>
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300">
+          <span className="font-semibold">ANTHROPIC_API_KEY not set</span>
+          <span className="opacity-80"> — deal extraction and summaries will be skipped. Add the key to enable AI analysis.</span>
         </div>
       )}
       {!emailAvailable && (
-        <div className="bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-slate-400 text-xs">
+        <div className="rounded-xl border border-border bg-card px-4 py-3 text-xs text-muted-foreground">
           Daily email disabled — set RESEND_API_KEY and EMAIL_TO in environment to enable.
         </div>
       )}
 
       {/* Top bar */}
-      <div className="flex flex-col sm:flex-row sm:items-start gap-4 justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-end gap-4 justify-between">
         <div>
-          <h1 className="text-xl font-bold text-slate-100 tracking-tight">
-            Economic Statecraft Transactions
+          <h1 className="text-2xl font-semibold text-foreground tracking-tight">
+            Transactions
           </h1>
-          <p className="text-slate-500 text-sm mt-0.5">
+          <p className="text-muted-foreground text-sm mt-1">
             {deals.length} active deal{deals.length !== 1 ? 's' : ''} tracked
-            {lastIngest && (
-              <span className="text-slate-600">
-                {' '}· Last scan {new Date(lastIngest.completed_at!).toLocaleString()}
-              </span>
+            {lastIngest?.completed_at && (
+              <span> · Last scan {new Date(lastIngest.completed_at).toLocaleString()}</span>
             )}
           </p>
         </div>
@@ -66,39 +64,32 @@ export default async function DashboardPage({
       {/* Filters */}
       <DashboardControls currentFilters={searchParams} />
 
-      {/* Deal grid */}
-      <Suspense fallback={<DealGridSkeleton />}>
+      {/* Deal table */}
+      <Suspense fallback={<TableSkeleton />}>
         {deals.length === 0 ? (
           <EmptyState hasFilters={Object.keys(searchParams).some((k) => searchParams[k])} />
         ) : (
-          <DealGrid deals={deals} />
+          <DealTable deals={deals} />
         )}
       </Suspense>
     </div>
   );
 }
 
-function DealGridSkeleton() {
-  return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-      {Array.from({ length: 6 }).map((_, i) => (
-        <div key={i} className="bg-slate-900 border border-slate-800 rounded-xl h-72 animate-pulse" />
-      ))}
-    </div>
-  );
+function TableSkeleton() {
+  return <div className="card h-96 animate-pulse" />;
 }
 
 function EmptyState({ hasFilters }: { hasFilters: boolean }) {
   return (
-    <div className="text-center py-24 text-slate-500">
-      <div className="text-4xl mb-4">◎</div>
-      <p className="text-lg font-medium text-slate-400">
-        {hasFilters ? 'No deals match current filters' : 'No deals ingested yet'}
+    <div className="card text-center py-24">
+      <p className="text-lg font-medium text-foreground">
+        {hasFilters ? 'No deals match current filters' : 'No deals tracked yet'}
       </p>
-      <p className="text-sm mt-2">
+      <p className="text-sm mt-2 text-muted-foreground">
         {hasFilters
           ? 'Try clearing filters'
-          : 'Click "Run Scan" to pull live data from GDELT and World Bank'}
+          : 'Run a scan or upload a document to start tracking transactions'}
       </p>
     </div>
   );

@@ -72,43 +72,70 @@ export function formatRelativeTime(iso: string): string {
   return formatDate(iso);
 }
 
+// Text color for a composite/sub score (theme-aware).
 export function scoreColorClass(score: number | null): string {
-  if (score == null) return 'text-slate-500';
-  if (score >= 70) return 'text-red-400';
-  if (score >= 50) return 'text-orange-400';
-  if (score >= 30) return 'text-yellow-400';
-  return 'text-slate-400';
+  if (score == null) return 'text-muted-foreground';
+  if (score >= 70) return 'text-red-600 dark:text-red-400';
+  if (score >= 50) return 'text-orange-600 dark:text-orange-400';
+  if (score >= 30) return 'text-amber-600 dark:text-amber-400';
+  return 'text-muted-foreground';
 }
 
+// Tinted pill (bg + text) for the score cell in the table.
+export function scorePillClass(score: number | null): string {
+  if (score == null) return 'bg-secondary text-muted-foreground';
+  if (score >= 70) return 'bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300';
+  if (score >= 50) return 'bg-orange-100 text-orange-700 dark:bg-orange-500/15 dark:text-orange-300';
+  if (score >= 30) return 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300';
+  return 'bg-secondary text-muted-foreground';
+}
+
+// Solid fill for progress bars (works in both themes).
+export function scoreBarClass(score: number | null): string {
+  if (score == null) return 'bg-muted-foreground/40';
+  if (score >= 70) return 'bg-red-500';
+  if (score >= 50) return 'bg-orange-500';
+  if (score >= 30) return 'bg-amber-500';
+  return 'bg-muted-foreground/50';
+}
+
+// Subtle tinted background for the deal-detail header card.
 export function scoreBgClass(score: number | null): string {
-  if (score == null) return 'bg-slate-800';
-  if (score >= 70) return 'bg-red-950 border-red-900';
-  if (score >= 50) return 'bg-orange-950 border-orange-900';
-  if (score >= 30) return 'bg-yellow-950 border-yellow-900';
-  return 'bg-slate-800 border-slate-700';
+  if (score == null) return 'bg-card border-border';
+  if (score >= 70) return 'bg-red-50 border-red-200 dark:bg-red-950/30 dark:border-red-900/50';
+  if (score >= 50) return 'bg-orange-50 border-orange-200 dark:bg-orange-950/30 dark:border-orange-900/50';
+  if (score >= 30) return 'bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-900/50';
+  return 'bg-card border-border';
 }
 
 export function sectorColorClass(sector: Sector): string {
   const map: Record<Sector, string> = {
-    strategic_infrastructure: 'bg-blue-950 text-blue-300 border-blue-800',
-    digital_connectivity: 'bg-purple-950 text-purple-300 border-purple-800',
-    energy: 'bg-orange-950 text-orange-300 border-orange-800',
-    cybersecurity: 'bg-red-950 text-red-300 border-red-800',
-    other: 'bg-slate-800 text-slate-300 border-slate-600',
+    strategic_infrastructure: 'bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300',
+    digital_connectivity: 'bg-purple-100 text-purple-700 dark:bg-purple-500/15 dark:text-purple-300',
+    energy: 'bg-orange-100 text-orange-700 dark:bg-orange-500/15 dark:text-orange-300',
+    cybersecurity: 'bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300',
+    other: 'bg-secondary text-secondary-foreground',
   };
-  return map[sector] ?? 'bg-slate-800 text-slate-300';
+  return map[sector] ?? 'bg-secondary text-secondary-foreground';
 }
 
 export function stageColorClass(stage: LifecycleStage): string {
   const map: Record<LifecycleStage, string> = {
-    rumored: 'bg-slate-800 text-slate-400',
-    exploratory_mou: 'bg-blue-950 text-blue-300',
-    negotiation: 'bg-yellow-950 text-yellow-300',
-    signed: 'bg-green-950 text-green-300',
-    financing_secured: 'bg-emerald-950 text-emerald-300',
-    under_construction: 'bg-orange-950 text-orange-300',
-    completed: 'bg-slate-700 text-slate-300',
-    cancelled: 'bg-red-950 text-red-500',
+    rumored: 'bg-secondary text-muted-foreground',
+    exploratory_mou: 'bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300',
+    negotiation: 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300',
+    signed: 'bg-green-100 text-green-700 dark:bg-green-500/15 dark:text-green-300',
+    financing_secured: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300',
+    under_construction: 'bg-orange-100 text-orange-700 dark:bg-orange-500/15 dark:text-orange-300',
+    completed: 'bg-secondary text-secondary-foreground',
+    cancelled: 'bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300',
   };
-  return map[stage] ?? 'bg-slate-800 text-slate-400';
+  return map[stage] ?? 'bg-secondary text-muted-foreground';
+}
+
+// Confidence-tier accent for sources (T1 primary/official → T3 secondary).
+export function tierColorClass(tier: number): string {
+  if (tier === 1) return 'text-[hsl(var(--success))]';
+  if (tier === 2) return 'text-primary';
+  return 'text-muted-foreground';
 }

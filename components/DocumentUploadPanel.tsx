@@ -20,12 +20,12 @@ interface DocRow {
 }
 
 const STATUS_STYLES: Record<string, string> = {
-  uploaded: 'bg-slate-700 text-slate-300',
-  parsing: 'bg-blue-900 text-blue-300',
-  parsed: 'bg-indigo-900 text-indigo-300',
-  analyzing: 'bg-blue-900 text-blue-300',
-  analyzed: 'bg-green-900 text-green-300',
-  error: 'bg-red-900 text-red-300',
+  uploaded: 'bg-secondary text-muted-foreground',
+  parsing: 'bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300',
+  parsed: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300',
+  analyzing: 'bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300',
+  analyzed: 'bg-green-100 text-green-700 dark:bg-green-500/15 dark:text-green-300',
+  error: 'bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300',
 };
 
 const KIND_ICON: Record<string, string> = {
@@ -156,8 +156,8 @@ export function DocumentUploadPanel() {
           onFiles(e.dataTransfer.files);
         }}
         onClick={() => inputRef.current?.click()}
-        className={`cursor-pointer rounded-xl border-2 border-dashed px-6 py-10 text-center transition-colors ${
-          dragOver ? 'border-blue-500 bg-blue-950/40' : 'border-slate-700 hover:border-slate-600 bg-slate-900/50'
+        className={`cursor-pointer rounded-2xl border-2 border-dashed px-6 py-10 text-center transition-colors ${
+          dragOver ? 'border-primary bg-primary/5' : 'border-border hover:border-muted-foreground/50 bg-card'
         }`}
       >
         <input
@@ -168,64 +168,64 @@ export function DocumentUploadPanel() {
           accept=".pdf,.docx,.doc,.xlsx,.xls,.csv,.txt,.md,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv,text/plain"
           onChange={(e) => onFiles(e.target.files)}
         />
-        <div className="text-3xl mb-2">⬆</div>
-        <p className="text-slate-200 font-medium text-sm">
+        <div className="text-3xl mb-2 text-muted-foreground">⬆</div>
+        <p className="text-foreground font-medium text-sm">
           {uploading ? 'Uploading…' : 'Drop files here or click to upload'}
         </p>
-        <p className="text-slate-500 text-xs mt-1">Word, Excel, PDF, CSV, or text — up to 25 MB each</p>
+        <p className="text-muted-foreground text-xs mt-1">Word, Excel, PDF, CSV, or text — up to 25 MB each</p>
       </div>
 
       <div>
-        <label className="text-xs text-slate-500">Optional note (context passed to the analyzer)</label>
+        <label className="text-xs text-muted-foreground">Optional note (context passed to the analyzer)</label>
         <input
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           placeholder="e.g. Internal briefing on Sri Lanka port financing"
-          className="mt-1 w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-blue-500"
+          className="mt-1 w-full bg-card border border-border rounded-xl px-3 py-2 text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring"
         />
       </div>
 
-      {error && <div className="text-sm text-red-400 bg-red-950/40 border border-red-900 rounded-lg px-3 py-2">{error}</div>}
+      {error && <div className="text-sm text-destructive bg-destructive/10 border border-destructive/30 rounded-xl px-3 py-2">{error}</div>}
 
       {/* Document list */}
       <div className="space-y-2">
-        <h3 className="text-sm font-semibold text-slate-300">
-          Uploaded documents {docs.length > 0 && <span className="text-slate-600">({docs.length})</span>}
+        <h3 className="text-sm font-semibold text-foreground">
+          Uploaded documents {docs.length > 0 && <span className="text-muted-foreground">({docs.length})</span>}
         </h3>
         {loading ? (
-          <div className="text-slate-500 text-sm">Loading…</div>
+          <div className="text-muted-foreground text-sm">Loading…</div>
         ) : docs.length === 0 ? (
-          <div className="text-slate-600 text-sm py-6 text-center border border-slate-800 rounded-lg">
+          <div className="text-muted-foreground text-sm py-6 text-center border border-border rounded-xl">
             No documents yet. Upload a file to feed it into the transaction tracker.
           </div>
         ) : (
           docs.map((d) => (
             <div
               key={d.id}
-              className="flex items-center gap-3 bg-slate-900 border border-slate-800 rounded-lg px-4 py-3"
+              className="flex items-center gap-3 bg-card border border-border rounded-xl px-4 py-3 shadow-card"
             >
               <span className="text-xl shrink-0">{KIND_ICON[d.kind] ?? '📎'}</span>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <span className="text-slate-200 text-sm font-medium truncate">{d.filename}</span>
+                  <span className="text-foreground text-sm font-medium truncate">{d.filename}</span>
                   <span
-                    className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${STATUS_STYLES[d.status] ?? 'bg-slate-700 text-slate-300'} ${
+                    className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${STATUS_STYLES[d.status] ?? 'bg-secondary text-muted-foreground'} ${
                       d.status === 'analyzing' || d.status === 'parsing' ? 'animate-pulse' : ''
                     }`}
                   >
                     {d.status === 'analyzing' ? 'analyzing…' : d.status}
                   </span>
                 </div>
-                <div className="text-xs text-slate-500 mt-0.5">
+                <div className="text-xs text-muted-foreground mt-0.5">
                   {formatBytes(d.byte_size)}
                   {d.page_count ? ` · ${d.page_count} pg` : ''}
                   {d.char_count ? ` · ${d.char_count.toLocaleString()} chars` : ''}
                   {d.status === 'analyzed' && (
-                    <span className="text-green-500">
+                    <span className="text-[hsl(var(--success))]">
                       {' '}· {d.deals_created} new, {d.deals_updated} updated ({d.deals_found} found)
                     </span>
                   )}
-                  {d.error_message && <span className="text-red-500"> · {d.error_message.slice(0, 60)}</span>}
+                  {d.error_message && <span className="text-destructive"> · {d.error_message.slice(0, 60)}</span>}
                 </div>
               </div>
               <div className="flex items-center gap-2 shrink-0">
@@ -233,14 +233,14 @@ export function DocumentUploadPanel() {
                   <button
                     onClick={() => analyze(d.id)}
                     disabled={busyId === d.id || d.status === 'analyzing'}
-                    className="text-xs px-2.5 py-1 rounded-md bg-blue-600 hover:bg-blue-500 text-white font-medium disabled:opacity-50"
+                    className="text-xs px-3 py-1 rounded-full bg-primary hover:opacity-90 text-primary-foreground font-medium disabled:opacity-50 transition-opacity"
                   >
                     {busyId === d.id || d.status === 'analyzing' ? '…' : d.status === 'analyzed' ? 'Re-analyze' : 'Analyze'}
                   </button>
                 )}
                 <button
                   onClick={() => download(d.id)}
-                  className="text-xs px-2 py-1 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-300"
+                  className="text-xs w-7 h-7 rounded-full bg-secondary hover:bg-border text-foreground transition-colors"
                   title="Download original"
                 >
                   ↓
@@ -248,7 +248,7 @@ export function DocumentUploadPanel() {
                 <button
                   onClick={() => remove(d.id)}
                   disabled={busyId === d.id}
-                  className="text-xs px-2 py-1 rounded-md bg-slate-800 hover:bg-red-900 text-slate-400 hover:text-red-300 disabled:opacity-50"
+                  className="text-xs w-7 h-7 rounded-full bg-secondary hover:bg-destructive/15 text-muted-foreground hover:text-destructive disabled:opacity-50 transition-colors"
                   title="Delete"
                 >
                   ✕

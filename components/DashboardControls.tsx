@@ -80,7 +80,7 @@ export function DashboardControls({ currentFilters }: Props) {
           }
         }}
         onBlur={(e) => updateFilter('search', e.target.value)}
-        className="bg-slate-800 border border-slate-700 text-slate-200 placeholder-slate-500 text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500 w-44"
+        className="bg-card border border-border text-foreground placeholder-muted-foreground text-sm rounded-full px-4 py-1.5 focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring w-48 transition-shadow"
       />
 
       <Select
@@ -99,7 +99,7 @@ export function DashboardControls({ currentFilters }: Props) {
         options={REGIONS}
       />
 
-      <div className="h-5 w-px bg-slate-700 hidden sm:block" />
+      <div className="h-5 w-px bg-border hidden sm:block" />
 
       <Select
         value={currentFilters.sort_by ?? 'composite_score'}
@@ -110,7 +110,7 @@ export function DashboardControls({ currentFilters }: Props) {
       {hasFilters && (
         <button
           onClick={clearAll}
-          className="text-xs text-slate-500 hover:text-slate-300 border border-slate-700 rounded-lg px-2.5 py-1.5 transition-colors"
+          className="text-xs text-muted-foreground hover:text-foreground border border-border rounded-full px-3 py-1.5 hover:bg-secondary transition-colors"
         >
           Clear filters
         </button>
@@ -132,7 +132,7 @@ function Select({
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
+      className="bg-card border border-border text-foreground text-sm rounded-full px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-ring/40 cursor-pointer hover:bg-secondary transition-colors"
     >
       {options.map((o) => (
         <option key={o.value} value={o.value}>
