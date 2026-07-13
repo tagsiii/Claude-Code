@@ -6,7 +6,7 @@
 // ─────────────────────────────────────────────────────────────
 
 // Site-wide background. Options: "" (plain), "cosmos", "ridge", "ocean", "dawn"
-export const siteBackground = "";
+export const siteBackground = "ocean";
 
 export const content = {
   // Shows in the browser tab + social previews
