@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
 interface IngestResult {
@@ -79,6 +80,9 @@ export function IngestPanel() {
           <div className="text-muted-foreground/70">
             {result.totals.found} candidate transactions processed
           </div>
+          <Link href="/dashboard/activity" className="text-primary hover:underline">
+            View full results →
+          </Link>
         </div>
       )}
 

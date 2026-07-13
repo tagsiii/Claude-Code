@@ -1,6 +1,7 @@
 import { isLikelySameDeal, titleSimilarity, mergeCandidateIntoDeal } from '../lib/pipeline/deduplication.ts';
 import { normalizeCandidate, normalizeSector, normalizeStage, parseUsd, normalizeKeyDates } from '../lib/pipeline/normalize.ts';
 import { resolveSort, sanitizeSearch } from '../lib/db/queries.ts';
+import { readFileSync } from 'node:fs';
 
 let pass = 0, fail = 0;
 function check(name: string, cond: boolean, detail = '') {
@@ -195,6 +196,17 @@ console.log('── Sorting + search hardening ──');
     check(`sort option '${v}' accepted`, resolveSort({ sort_by: v as never }).column === v);
   }
 }
+
+// ─── Regression guard: Tailwind must scan lib/ ─────────────────────────────────
+// The score-bar/sector-chip color classes are emitted by helper functions in
+// lib/utils/format.ts. If lib/ drops out of tailwind.config content globs, those
+// classes get purged from the CSS and every bar/chip silently loses its color.
+{
+  console.log('── Tailwind content globs ──');
+  const cfg = readFileSync(new URL('../tailwind.config.ts', import.meta.url), 'utf8');
+  check('tailwind.config scans lib/', cfg.includes('./lib/**/*'));
+}
+
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail > 0 ? 1 : 0);

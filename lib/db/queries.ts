@@ -255,6 +255,18 @@ export async function getLatestSuccessfulIngest(): Promise<IngestLog | null> {
   return data as IngestLog | null;
 }
 
+// Most recently touched deals (created or updated) — powers the Activity page.
+export async function getRecentDealActivity(limit = 15): Promise<Deal[]> {
+  const { data, error } = await db
+    .from('deals')
+    .select('*')
+    .eq('status', 'active')
+    .order('last_updated_at', { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data ?? []) as Deal[];
+}
+
 // ─── Top Deals for Email ──────────────────────────────────────────────────────
 
 export async function getTopDealsByScore(limit = 3): Promise<Deal[]> {

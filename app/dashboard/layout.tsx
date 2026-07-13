@@ -20,6 +20,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
             </Link>
           </div>
           <div className="flex items-center gap-1 sm:gap-2">
+            <NavLink href="/dashboard/activity">Activity</NavLink>
             <NavLink href="/dashboard/documents">Documents</NavLink>
             <NavLink href="/dashboard/config">Config</NavLink>
             <div className="mx-1 h-5 w-px bg-border hidden sm:block" />

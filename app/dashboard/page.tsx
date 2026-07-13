@@ -1,5 +1,7 @@
 import { Suspense } from 'react';
+import Link from 'next/link';
 import { getDeals, getLatestSuccessfulIngest } from '@/lib/db/queries';
+import { TimeAgo } from '@/components/TimeAgo';
 import { DealTable } from '@/components/DealTable';
 import { DashboardControls } from '@/components/DashboardControls';
 import { IngestPanel } from '@/components/IngestPanel';
@@ -62,8 +64,15 @@ export default async function DashboardPage({
           </h1>
           <p className="text-muted-foreground text-sm mt-1">
             {deals.length} active deal{deals.length !== 1 ? 's' : ''} tracked
-            {lastIngest?.completed_at && (
-              <span> · Last scan {new Date(lastIngest.completed_at).toLocaleString()}</span>
+            {lastIngest?.completed_at ? (
+              <>
+                {' '}· Last scan <TimeAgo iso={lastIngest.completed_at} /> ·{' '}
+                <Link href="/dashboard/activity" className="text-primary hover:underline">
+                  View results
+                </Link>
+              </>
+            ) : (
+              <span> · No scans yet</span>
             )}
           </p>
         </div>

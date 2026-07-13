@@ -6,6 +6,9 @@ const config: Config = {
     './pages/**/*.{js,ts,jsx,tsx,mdx}',
     './components/**/*.{js,ts,jsx,tsx,mdx}',
     './app/**/*.{js,ts,jsx,tsx,mdx}',
+    // Color-helper functions (scoreBarClass, sectorColorClass, …) live in lib/ —
+    // without scanning it, Tailwind purges any class that appears only there.
+    './lib/**/*.{js,ts,jsx,tsx}',
   ],
   theme: {
     extend: {

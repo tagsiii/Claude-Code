@@ -1,13 +1,15 @@
 import type { ScoreBreakdown } from '@/lib/types';
 import { scoreBarClass } from '@/lib/utils/format';
 
-const DIM_LABELS: Record<keyof ScoreBreakdown, string> = {
-  likelihood: 'Likelihood to Close',
-  actionability: 'US Actionability Window',
-  financing: 'Financing Certainty',
-  corroboration: 'Source Corroboration',
-  strategic_priority: 'Strategic Priority',
-};
+// Fixed render order (by weight) — the breakdown is stored as JSONB, and
+// Postgres reorders JSONB keys, so Object.entries() order is not canonical.
+const DIM_ORDER: Array<[keyof ScoreBreakdown, string]> = [
+  ['likelihood', 'Likelihood to Close'],
+  ['actionability', 'US Actionability Window'],
+  ['financing', 'Financing Certainty'],
+  ['corroboration', 'Source Corroboration'],
+  ['strategic_priority', 'Strategic Priority'],
+];
 
 export function ScoreBreakdownPanel({
   breakdown,
@@ -16,7 +18,9 @@ export function ScoreBreakdownPanel({
   breakdown: ScoreBreakdown;
   composite: number | null;
 }) {
-  const dims = Object.entries(breakdown) as [keyof ScoreBreakdown, ScoreBreakdown[keyof ScoreBreakdown]][];
+  const dims = DIM_ORDER.filter(([key]) => breakdown[key]).map(
+    ([key, label]) => [key, label, breakdown[key]] as const
+  );
 
   return (
     <div className="card p-5">
@@ -30,10 +34,10 @@ export function ScoreBreakdownPanel({
       </div>
 
       <div className="space-y-4">
-        {dims.map(([key, sub]) => (
+        {dims.map(([key, label, sub]) => (
           <div key={key}>
             <div className="flex items-center justify-between mb-1.5">
-              <span className="text-sm text-foreground">{DIM_LABELS[key]}</span>
+              <span className="text-sm text-foreground">{label}</span>
               <div className="flex items-center gap-3">
                 <span className="text-xs text-muted-foreground font-mono-numbers">
                   ×{(sub.weight * 100).toFixed(0)}%
