@@ -70,6 +70,17 @@ export function DocumentUploadPanel() {
     load();
   }, [load]);
 
+  // Auto-refresh while any document is still parsing or analyzing, so the status
+  // flips to 'analyzed' / 'error' on its own when the server finishes — no reload needed.
+  useEffect(() => {
+    const inProgress = docs.some((d) => d.status === 'analyzing' || d.status === 'parsing');
+    if (!inProgress) return;
+    const timer = setInterval(() => {
+      void load();
+    }, 4000);
+    return () => clearInterval(timer);
+  }, [docs, load]);
+
   async function upload(file: File) {
     setUploading(true);
     setError('');
@@ -197,8 +208,12 @@ export function DocumentUploadPanel() {
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <span className="text-slate-200 text-sm font-medium truncate">{d.filename}</span>
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${STATUS_STYLES[d.status] ?? 'bg-slate-700 text-slate-300'}`}>
-                    {d.status}
+                  <span
+                    className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${STATUS_STYLES[d.status] ?? 'bg-slate-700 text-slate-300'} ${
+                      d.status === 'analyzing' || d.status === 'parsing' ? 'animate-pulse' : ''
+                    }`}
+                  >
+                    {d.status === 'analyzing' ? 'analyzing…' : d.status}
                   </span>
                 </div>
                 <div className="text-xs text-slate-500 mt-0.5">
