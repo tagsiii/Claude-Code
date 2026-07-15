@@ -1,78 +1,99 @@
 // GDELT query design.
 //
-// Old approach: long exact phrases ("railway investment", "port management
-// contract"). Headlines rarely reuse our exact wording, so recall was poor —
-// "Beijing backs $2B rail line to Nairobi" matched nothing.
-//
-// New approach — model the LANGUAGE of deal headlines instead of guessing
-// phrasings. A deal headline almost always co-locates two short tokens:
-//   SPONSOR (china / beijing / rosatom / uae …) near ASSET (rail / port / 5g …)
+// The language model: a deal headline almost always co-locates a SPONSOR token
+// (china / beijing / rosatom / uae …) with an ASSET token (rail / port / 5g …)
 // while the connecting verb varies freely (backs, funds, wins, signs, builds).
-// GDELT's near operator matches exactly that shape: near15:"china rail" hits
-// any article where the two tokens appear within 15 words, in any phrasing.
+// GDELT's near operator matches that shape: near15:"china rail" hits any
+// article where the tokens appear within 15 words, in any phrasing.
+//
+// Hard constraints learned from the live API (via npm run gdelt:check):
+//   · Rate limit: ONE request per 5 seconds — keep total query count small
+//   · Query length: long OR-chains get "query was too short or too long" —
+//     keep every query compact (~<200 chars), like the historically-working set
+// So instead of a full sponsor×asset cross-product, we ship a curated list of
+// the highest-value pairs, grouped into a handful of short queries.
 //
 // Three complementary layers, from broad to surgical:
-//   1. Proximity sweep    — sponsor × asset token pairs (high recall)
+//   1. Proximity sweep    — curated sponsor×asset pairs (recall)
 //   2. Entity watchlist   — named policy banks / SOEs / sovereign funds
-//                           (high precision; catches deals with no country word)
-//   3. Instrument language — financing phrases that only appear in deal
-//                           coverage, regardless of sponsor
+//                           (precision; catches deals with no country word)
+//   3. Instrument language — financing phrases that only appear in deal coverage
 // The LLM extraction stage is the precision filter, so the net errs toward
 // recall; the scorer and dedup absorb the noise.
+//
+// Tuning: add/remove pairs below, then validate with `npm run gdelt:check` —
+// it fires every query at the live API and prints hit counts + sample titles.
 
 export const NEAR_DISTANCE = 15;
 
-// Sponsor tokens, grouped so each query stays within GDELT's length limits.
-export const SPONSOR_GROUPS: Record<string, string[]> = {
-  china: ['china', 'chinese', 'beijing'],
-  russia: ['russia', 'russian', 'moscow'],
-  gulf: ['saudi', 'uae', 'emirati', 'qatar', 'qatari', 'dubai', 'abu dhabi'],
-  other: ['turkey', 'turkish', 'iran', 'iranian'],
-};
-
-// Asset tokens — single words survive any headline phrasing around them.
-export const ASSET_TOKENS = [
-  'port', 'railway', 'rail', 'airport', 'highway', 'pipeline', 'refinery',
-  'nuclear', 'hydropower', 'dam', 'grid', 'solar', 'lng',
-  '5g', 'telecom', 'cable', 'satellite', 'datacenter',
-  'lithium', 'cobalt', 'minerals', 'cybersecurity',
+// Curated sponsor × asset pairs, grouped so each query stays short.
+export const PROXIMITY_GROUPS: Array<{ label: string; pairs: Array<[string, string]> }> = [
+  {
+    label: 'china-transport',
+    pairs: [
+      ['china', 'port'], ['china', 'railway'], ['china', 'rail'],
+      ['beijing', 'port'], ['china', 'airport'], ['china', 'pipeline'],
+    ],
+  },
+  {
+    label: 'china-energy',
+    pairs: [
+      ['china', 'nuclear'], ['china', 'hydropower'], ['china', 'grid'],
+      ['china', 'lng'], ['chinese', 'refinery'], ['china', 'dam'],
+    ],
+  },
+  {
+    label: 'china-digital-minerals',
+    pairs: [
+      ['china', '5g'], ['china', 'telecom'], ['china', 'cable'],
+      ['china', 'lithium'], ['china', 'cobalt'], ['china', 'minerals'],
+    ],
+  },
+  {
+    label: 'russia',
+    pairs: [
+      ['russia', 'nuclear'], ['russia', 'pipeline'], ['russia', 'railway'],
+      ['russian', 'grid'], ['russia', 'port'], ['russia', 'lng'],
+    ],
+  },
+  {
+    label: 'gulf',
+    pairs: [
+      ['uae', 'port'], ['saudi', 'port'], ['saudi', 'solar'],
+      ['qatar', 'lng'], ['uae', 'datacenter'], ['saudi', '5g'],
+    ],
+  },
+  {
+    label: 'turkey-iran',
+    pairs: [
+      ['turkey', 'railway'], ['turkish', 'port'], ['turkey', 'airport'],
+      ['iran', 'pipeline'], ['iran', 'port'], ['iranian', 'gas'],
+    ],
+  },
 ];
 
 // Named actors whose appearance in ANY deal context is worth reading.
+// Split into short queries to respect the length limit.
 const ENTITY_GROUPS: Array<{ label: string; terms: string[] }> = [
   {
     label: 'china-finance',
-    terms: [
-      '"China Exim"', '"Export-Import Bank of China"', '"China Development Bank"',
-      '"Silk Road Fund"', '"Belt and Road"', 'AIIB', 'Sinosure',
-    ],
+    terms: ['"China Exim"', '"China Development Bank"', '"Silk Road Fund"', '"Belt and Road"', 'AIIB'],
   },
   {
     label: 'china-soe',
-    terms: [
-      '"China Harbour"', '"China Harbor"', '"China Communications Construction"',
-      'PowerChina', 'Sinohydro', '"State Grid"', '"China Merchants"', 'COSCO',
-      'CNPC', 'Sinopec', 'CGN', 'CNNC', 'Huawei', 'ZTE',
-    ],
+    terms: ['"China Harbour"', '"China Merchants"', '"State Grid"', 'PowerChina', 'Sinohydro', 'COSCO', 'Huawei'],
   },
   {
     label: 'russia-gulf-entities',
-    terms: [
-      'Rosatom', 'Gazprom', 'Rosneft', '"Russian Railways"', 'Rostec',
-      '"DP World"', '"AD Ports"', 'Mubadala', 'ADIA', '"Public Investment Fund"',
-      '"ACWA Power"', 'Masdar', '"Qatar Investment Authority"',
-    ],
+    terms: ['Rosatom', 'Gazprom', '"Russian Railways"', '"DP World"', 'Mubadala', '"ACWA Power"', 'Masdar'],
   },
 ];
 
 // Financing-instrument phrases: deal-speak that appears regardless of sponsor.
 const INSTRUMENT_PHRASES = [
   '"concessional loan"', '"EPC contract"', '"build-operate-transfer"',
-  '"engineering procurement construction"', '"government-to-government agreement"',
-  '"sovereign guarantee"', '"debt-for-infrastructure"', '"port concession"',
+  '"port concession"', '"sovereign guarantee"',
 ];
-
-const CLAUSES_PER_QUERY = 30; // keeps each query URL comfortably under limits
 
 export interface GdeltQuery {
   label: string;
@@ -83,24 +104,13 @@ export function nearClause(sponsor: string, asset: string): string {
   return `near${NEAR_DISTANCE}:"${sponsor} ${asset}"`;
 }
 
-function chunk<T>(arr: T[], size: number): T[][] {
-  const out: T[][] = [];
-  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
-  return out;
-}
-
 export function buildGdeltQueries(): GdeltQuery[] {
   const queries: GdeltQuery[] = [];
 
   // Layer 1: proximity sweep
-  for (const [group, sponsors] of Object.entries(SPONSOR_GROUPS)) {
-    const clauses = sponsors.flatMap((s) => ASSET_TOKENS.map((a) => nearClause(s, a)));
-    chunk(clauses, CLAUSES_PER_QUERY).forEach((part, i) => {
-      queries.push({
-        label: `${group}-proximity-${i + 1}`,
-        query: `(${part.join(' OR ')})`,
-      });
-    });
+  for (const g of PROXIMITY_GROUPS) {
+    const clauses = g.pairs.map(([s, a]) => nearClause(s, a));
+    queries.push({ label: g.label, query: `(${clauses.join(' OR ')})` });
   }
 
   // Layer 2: entity watchlist

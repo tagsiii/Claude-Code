@@ -4,20 +4,29 @@
 // (no key needed) over a 7-day window, and prints hit counts + sample headlines
 // per query. Use it to eyeball whether the net is catching the deals you care
 // about, and to spot rejected queries after editing gdeltQueries.ts.
+//
+// GDELT allows ONE request per 5 seconds, so this takes ~1 minute to run.
 
 import { buildGdeltQueries } from '../lib/connectors/gdeltQueries.ts';
 
 const API = 'https://api.gdeltproject.org/api/v2/doc/doc';
+const SPACING_MS = 5500;
 
 const fmt = (d: Date) => d.toISOString().replace(/[-:T]/g, '').slice(0, 14);
 const end = new Date();
 const start = new Date(end.getTime() - 7 * 24 * 60 * 60 * 1000);
 
+const isRateLimitText = (t: string) => /limit requests|rate limit/i.test(t);
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 let failures = 0;
 let totalHits = 0;
 const seen = new Set<string>();
+const queries = buildGdeltQueries();
 
-for (const { label, query } of buildGdeltQueries()) {
+console.log(`Probing ${queries.length} queries (~${Math.ceil((queries.length * SPACING_MS) / 1000)}s at GDELT's 1-per-5s rate limit)…\n`);
+
+for (const { label, query } of queries) {
   const params = new URLSearchParams({
     query,
     mode: 'artlist',
@@ -29,16 +38,26 @@ for (const { label, query } of buildGdeltQueries()) {
   });
 
   try {
-    const res = await fetch(`${API}?${params}`, {
-      headers: { 'User-Agent': 'EconomicStatecraftMonitor/1.0' },
-    });
-    const text = await res.text();
+    let text = '';
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const res = await fetch(`${API}?${params}`, {
+        headers: { 'User-Agent': 'EconomicStatecraftMonitor/1.0' },
+      });
+      text = await res.text();
+      if (isRateLimitText(text) && attempt === 0) {
+        await sleep(SPACING_MS + 1500);
+        continue;
+      }
+      break;
+    }
+
     let articles: Array<{ url: string; title: string }> = [];
     try {
       articles = JSON.parse(text).articles ?? [];
     } catch {
       failures++;
       console.log(`✗ ${label}: REJECTED — ${text.slice(0, 140).replace(/\s+/g, ' ')}`);
+      await sleep(SPACING_MS);
       continue;
     }
     const fresh = articles.filter((a) => a.url && !seen.has(a.url));
@@ -52,11 +71,11 @@ for (const { label, query } of buildGdeltQueries()) {
     failures++;
     console.log(`✗ ${label}: fetch failed — ${err instanceof Error ? err.message : err}`);
   }
-  await new Promise((r) => setTimeout(r, 800));
+  await sleep(SPACING_MS);
 }
 
 console.log(`\n${seen.size} unique articles across all queries (${totalHits} total hits), ${failures} failed queries`);
 if (failures > 0) {
-  console.log('Failed queries above were REJECTED by GDELT — fix their syntax in lib/connectors/gdeltQueries.ts');
+  console.log('Failed queries above were rejected by GDELT — fix them in lib/connectors/gdeltQueries.ts');
   process.exit(1);
 }

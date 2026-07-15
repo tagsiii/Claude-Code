@@ -8,6 +8,13 @@ const GDELT_DOC_API = 'https://api.gdeltproject.org/api/v2/doc/doc';
 // a hot news week can't explode LLM cost downstream.
 const MAX_ARTICLES = 900;
 
+// GDELT enforces one request per 5 seconds; pace with margin.
+const REQUEST_SPACING_MS = 5500;
+
+function isRateLimitText(text: string): boolean {
+  return /limit requests|rate limit/i.test(text);
+}
+
 interface GdeltArticle {
   url: string;
   title: string;
@@ -48,17 +55,28 @@ export class GdeltConnector extends BaseConnector {
           startdatetimelocal: fmt(start),
           enddatetimelocal: fmt(end),
         });
+        const url = `${GDELT_DOC_API}?${params}`;
 
-        const res = await fetch(`${GDELT_DOC_API}?${params}`, {
-          headers: { 'User-Agent': 'EconomicStatecraftMonitor/1.0' },
-          next: { revalidate: 0 },
-        });
-
-        const text = await res.text();
-        if (!res.ok) {
-          this.warnings.push(`${label}: HTTP ${res.status} — ${text.slice(0, 120)}`);
-          continue;
+        let text = '';
+        // One automatic retry if we hit the rate limiter mid-run.
+        for (let attempt = 0; attempt < 2; attempt++) {
+          const res = await fetch(url, {
+            headers: { 'User-Agent': 'EconomicStatecraftMonitor/1.0' },
+            next: { revalidate: 0 },
+          });
+          text = await res.text();
+          if (!res.ok) {
+            this.warnings.push(`${label}: HTTP ${res.status} — ${text.slice(0, 120)}`);
+            text = '';
+            break;
+          }
+          if (isRateLimitText(text) && attempt === 0) {
+            await this.delay(REQUEST_SPACING_MS + 1500);
+            continue;
+          }
+          break;
         }
+        if (!text) continue;
 
         // GDELT reports query-syntax errors as plain text with HTTP 200 —
         // a JSON parse failure here means the query was rejected, not empty.
@@ -84,12 +102,11 @@ export class GdeltConnector extends BaseConnector {
             confidence_tier: 2,
           });
         }
-
-        await this.delay(500); // be respectful to GDELT
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         this.warnings.push(`${label}: ${msg}`.slice(0, 160));
       }
+      await this.delay(REQUEST_SPACING_MS); // GDELT: one request per 5 seconds
     }
 
     // Every single query failed → the net is broken, not the news cycle quiet.
