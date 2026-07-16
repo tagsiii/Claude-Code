@@ -2,9 +2,11 @@ import { callClaude, isLlmAvailable } from './client';
 import {
   DEAL_EXTRACTION_SYSTEM,
   DEAL_SUMMARY_SYSTEM,
+  DEAL_ENRICHMENT_SYSTEM,
   DOCUMENT_EXTRACTION_SYSTEM,
   buildExtractionPrompt,
   buildSummaryPrompt,
+  buildEnrichmentPrompt,
   buildDocumentExtractionPrompt,
 } from './prompts';
 import type { RawArticle, DealCandidate } from '../types';
@@ -135,12 +137,29 @@ function chunkText(text: string, size: number): string[] {
   return chunks;
 }
 
+// Read the full text of source article(s) about ONE deal and extract concrete
+// facts (sponsors, values, stage, countries) as a candidate-shaped object that
+// merges onto the deal through the standard running-tab path.
+export async function extractDealFacts(
+  dealTitle: string,
+  articles: Array<{ url: string; text: string }>
+): Promise<Partial<DealCandidate> | null> {
+  if (!isLlmAvailable() || articles.length === 0) return null;
+  try {
+    const prompt = buildEnrichmentPrompt(dealTitle, articles);
+    const response = await callClaude(DEAL_ENRICHMENT_SYSTEM, prompt, 2048);
+    return parseJsonSafely<Partial<DealCandidate>>(response);
+  } catch {
+    return null; // enrichment is best-effort
+  }
+}
+
 export async function generateDealSummary(
   dealTitle: string,
   hostCountry: string,
   sponsoringState: string | null,
   sector: string,
-  sources: Array<{ url: string; title: string | null; published_at: string | null }>
+  sources: Array<{ url: string; title: string | null; published_at: string | null; excerpt?: string | null }>
 ): Promise<{ executive_summary: string; us_diplomatic_context: string } | null> {
   if (!isLlmAvailable() || sources.length === 0) return null;
 

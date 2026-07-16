@@ -3,6 +3,7 @@ import { normalizeCandidate, normalizeSector, normalizeStage, parseUsd, normaliz
 import { resolveSort, sanitizeSearch } from '../lib/db/queries.ts';
 import { readFileSync } from 'node:fs';
 import { buildGdeltQueries, nearClause, PROXIMITY_GROUPS } from '../lib/connectors/gdeltQueries.ts';
+import { stripHtml } from '../lib/utils/articleFetch.ts';
 
 let pass = 0, fail = 0;
 function check(name: string, cond: boolean, detail = '') {
@@ -232,6 +233,22 @@ console.log('── Sorting + search hardening ──');
   check('entity watchlist present (DP World)', all.includes('\"DP World\"'));
   check('instrument language present', all.includes('\"concessional loan\"'));
 }
+
+// ─── Article HTML → text (enrichment input) ────────────────────────────────────
+{
+  console.log('── Article text extraction ──');
+  const html = `<html><head><style>.x{color:red}</style><script>track()</script></head>
+<body><article><h1>Gigascale Solar Deal</h1><p>ACWA Power and the Public Investment Fund
+will finance the $2.1B project.</p><p>Construction starts in&nbsp;2027 &amp; beyond.</p>
+<!-- comment --><div>Related: <a href="/x">other</a></div></article></body></html>`;
+  const text = stripHtml(html);
+  check('script/style removed', !text.includes('track()') && !text.includes('color:red'));
+  check('body text preserved', text.includes('ACWA Power') && text.includes('$2.1B'));
+  check('entities decoded', text.includes('in 2027 & beyond'));
+  check('block tags become line breaks', text.includes('Gigascale Solar Deal\n'));
+  check('comments removed', !text.includes('comment'));
+}
+
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail > 0 ? 1 : 0);

@@ -44,6 +44,8 @@ export async function analyzeDocument(docId: string): Promise<DocumentAnalysisRe
       url: source.url,
       title: doc.filename,
       published_at: doc.created_at,
+      // Give summary generation real content to cite, not just the filename.
+      excerpt: doc.parsed_text.slice(0, 2500),
     };
     if (doc.source_id !== source.id) {
       await updateDocument(doc.id, { source_id: source.id });

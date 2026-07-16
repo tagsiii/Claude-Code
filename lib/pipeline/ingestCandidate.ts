@@ -3,11 +3,13 @@ import {
   getDealById,
   linkSourceToDeal,
   addDealEvent,
+  updateSourceExcerpt,
 } from '../db/queries';
 import { findDuplicateDeal, mergeCandidateIntoDeal } from './deduplication';
 import { normalizeCandidate } from './normalize';
 import { scoreDeal } from './scoring';
-import { generateDealSummary } from '../llm/analyze';
+import { generateDealSummary, extractDealFacts } from '../llm/analyze';
+import { fetchArticleText } from '../utils/articleFetch';
 import type { ConfidenceTier, Deal, DealCandidate } from '../types';
 
 export interface IngestSourceRef {
@@ -15,6 +17,8 @@ export interface IngestSourceRef {
   url: string;
   title: string | null;
   published_at: string | null;
+  // Full-text excerpt when the caller already has content (document uploads).
+  excerpt?: string | null;
 }
 
 export interface CandidateContext {
@@ -149,12 +153,75 @@ export async function ingestCandidate(
     }
   }
 
+  // ─── Enrichment: read the article BODIES, not just headlines ────────────────
+  // News candidates are extracted from titles alone, which produces records
+  // with no sponsors, values, or countries even when the article names them.
+  // Fetch up to two source articles, extract concrete facts, and merge them
+  // through the standard monotonic-merge path. Best-effort — a paywalled or
+  // unreachable article just skips this step.
+  let enrichedDeal: Deal = newDeal;
+  if (ctx.generateSummaries !== false) {
+    try {
+      const fetched: Array<{ ref: IngestSourceRef; text: string }> = [];
+      for (const ref of sources.filter((s) => /^https?:/i.test(s.url)).slice(0, 2)) {
+        const text = ref.excerpt ?? (await fetchArticleText(ref.url));
+        if (text) {
+          fetched.push({ ref, text });
+          if (!ref.excerpt) {
+            ref.excerpt = text; // reuse for the summary below
+            await updateSourceExcerpt(ref.id, text);
+          }
+        }
+      }
+
+      if (fetched.length > 0) {
+        const facts = await extractDealFacts(
+          newDeal.title,
+          fetched.map((f) => ({ url: f.ref.url, text: f.text.slice(0, 5000) }))
+        );
+        if (facts) {
+          const factCandidate = normalizeCandidate({
+            ...facts,
+            title: newDeal.title,
+            sector: candidate.sector,
+          } as DealCandidate);
+          const merged = mergeCandidateIntoDeal(newDeal, factCandidate);
+          if (Object.keys(merged).length > 0) {
+            const { composite, breakdown } = await scoreDeal({ ...newDeal, ...merged });
+            enrichedDeal = (await upsertDeal({
+              id: newDeal.id,
+              ...merged,
+              composite_score: composite,
+              score_breakdown: breakdown,
+              score_calculated_at: new Date().toISOString(),
+            })) as Deal;
+          }
+          for (const evt of factCandidate.key_dates) {
+            try {
+              await addDealEvent({
+                deal_id: newDeal.id,
+                event_date: evt.date,
+                description: evt.description,
+                source_id: fetched[0]?.ref.id ?? null,
+              });
+            } catch {
+              // non-fatal
+            }
+          }
+        }
+      }
+    } catch {
+      // enrichment must never kill deal creation
+    }
+  }
+
   // Generate summary + diplomatic context if we have evidence and a host country.
-  if (ctx.generateSummaries !== false && sources.length > 0 && candidate.host_country) {
+  const hostCountry = enrichedDeal.host_country ?? candidate.host_country;
+  if (ctx.generateSummaries !== false && sources.length > 0 && hostCountry) {
     const summaries = await generateDealSummary(
-      newDeal.title,
-      candidate.host_country,
-      candidate.sponsoring_state,
+      enrichedDeal.title,
+      hostCountry,
+      enrichedDeal.sponsoring_state ?? candidate.sponsoring_state,
       candidate.sector,
       sources
     );

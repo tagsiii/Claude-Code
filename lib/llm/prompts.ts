@@ -89,6 +89,41 @@ Return a JSON array (possibly empty). Each element is a distinct deal with this 
 Leave "source_urls" as an empty array — the source is the uploaded document itself.
 Return ONLY valid JSON array. No markdown, no explanation outside the JSON.`;
 
+export const DEAL_ENRICHMENT_SYSTEM = `You are a senior economic statecraft analyst. You are reading the FULL TEXT of news article(s) that describe ONE specific transaction. Extract every concrete fact the text states about THIS transaction.
+
+DATA INTEGRITY RULES — CRITICAL:
+- Only state facts present in the provided text; use null for anything absent
+- Never fabricate sponsors, figures, or dates
+- Distinguish "reported"/"proposed" from "confirmed"/"signed"
+- Named companies, banks, and funds backing the deal go in financial_sponsors — extract EVERY one the text names, with their commitment status
+
+Return ONLY a JSON object (no markdown) with this schema:
+{
+  "sponsoring_state": "Country of the state-backed actor, or null",
+  "host_country": "Country where the project is located, or null",
+  "host_region": "Africa|South Asia|Southeast Asia|Central Asia|Pacific|Latin America|MENA|Europe|Other or null",
+  "subsector": "e.g. 'solar generation', 'port terminal', or null",
+  "lifecycle_stage": "rumored|exploratory_mou|negotiation|signed|financing_secured|under_construction|completed",
+  "lifecycle_reasoning": "1 sentence citing the text",
+  "rom_value_usd": integer USD or null,
+  "rom_basis": "how the value was stated, or null",
+  "sponsoring_entities": [{"name":"...","type":"policy_bank|soe|sovereign_fund|commercial|unknown","country":"...","commitment_status":"rumored|identified|committed|signed"}],
+  "financial_sponsors": [same schema],
+  "is_confirmed": true or false,
+  "confidence": 0.0-1.0,
+  "key_dates": [{"date":"YYYY-MM-DD or YYYY-MM or YYYY","description":"event"}]
+}`;
+
+export function buildEnrichmentPrompt(
+  dealTitle: string,
+  articles: Array<{ url: string; text: string }>
+): string {
+  const blocks = articles
+    .map((a, i) => `ARTICLE ${i + 1} (${a.url}):\n${a.text}`)
+    .join('\n\n---\n\n');
+  return `TRANSACTION BEING TRACKED: ${dealTitle}\n\n${blocks}\n\nExtract all concrete facts about this transaction as a single JSON object.`;
+}
+
 export function buildDocumentExtractionPrompt(
   filename: string,
   text: string,
@@ -114,11 +149,20 @@ export function buildSummaryPrompt(
   hostCountry: string,
   sponsoringState: string | null,
   sector: string,
-  sources: Array<{ url: string; title: string | null; published_at: string | null }>
+  sources: Array<{ url: string; title: string | null; published_at: string | null; excerpt?: string | null }>
 ): string {
   const sourceList = sources
     .map((s, i) => `[Source ${i + 1}] "${s.title ?? 'Untitled'}" — ${s.url} (${s.published_at?.slice(0, 10) ?? 'undated'})`)
     .join('\n');
+
+  // Full-text excerpts let the summary cite actual reporting instead of
+  // reasoning from headlines alone.
+  const excerpts = sources
+    .filter((s) => s.excerpt)
+    .slice(0, 3)
+    .map((s) => `[Source ${sources.indexOf(s) + 1} content]\n${s.excerpt!.slice(0, 2500)}`)
+    .join('\n\n');
+  const excerptBlock = excerpts ? `\nCONTENT EXCERPTS:\n${excerpts}\n` : '';
 
   return `
 DEAL: ${dealTitle}
@@ -128,7 +172,7 @@ SECTOR: ${sector}
 
 SOURCES:
 ${sourceList}
-
+${excerptBlock}
 Write the following (return as JSON with keys "executive_summary" and "us_diplomatic_context"):
 
 1. executive_summary: A one-paragraph executive summary (150-250 words) of the transaction. Include what is known about the deal structure, the sponsoring entity, the strategic significance, and the host country context. Cite sources inline as [Source N]. End with a note on what remains unconfirmed.

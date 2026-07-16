@@ -8,11 +8,14 @@ const GDELT_DOC_API = 'https://api.gdeltproject.org/api/v2/doc/doc';
 // a hot news week can't explode LLM cost downstream.
 const MAX_ARTICLES = 900;
 
-// GDELT enforces one request per 5 seconds; pace with margin.
-const REQUEST_SPACING_MS = 5500;
+// GDELT enforces one request per 5 seconds; pace with margin. When we DO get
+// throttled (HTTP 429 or the plain-text limiter message), back off hard —
+// GDELT keeps rejecting for a while once an IP is flagged.
+const REQUEST_SPACING_MS = 6000;
+const BACKOFF_MS = [15_000, 30_000];
 
-function isRateLimitText(text: string): boolean {
-  return /limit requests|rate limit/i.test(text);
+function isRateLimited(status: number, text: string): boolean {
+  return status === 429 || /limit requests|rate limit/i.test(text);
 }
 
 interface GdeltArticle {
@@ -58,25 +61,33 @@ export class GdeltConnector extends BaseConnector {
         const url = `${GDELT_DOC_API}?${params}`;
 
         let text = '';
-        // One automatic retry if we hit the rate limiter mid-run.
-        for (let attempt = 0; attempt < 2; attempt++) {
+        // Retry with escalating backoff when throttled (429 comes as an HTTP
+        // status, not just message text — handle both).
+        for (let attempt = 0; attempt <= BACKOFF_MS.length; attempt++) {
           const res = await fetch(url, {
             headers: { 'User-Agent': 'EconomicStatecraftMonitor/1.0' },
             next: { revalidate: 0 },
           });
           text = await res.text();
-          if (!res.ok) {
-            this.warnings.push(`${label}: HTTP ${res.status} — ${text.slice(0, 120)}`);
+          if (isRateLimited(res.status, text)) {
+            if (attempt < BACKOFF_MS.length) {
+              await this.delay(BACKOFF_MS[attempt]);
+              continue;
+            }
+            this.warnings.push(`${label}: rate limited after ${BACKOFF_MS.length + 1} attempts`);
             text = '';
             break;
           }
-          if (isRateLimitText(text) && attempt === 0) {
-            await this.delay(REQUEST_SPACING_MS + 1500);
-            continue;
+          if (!res.ok) {
+            this.warnings.push(`${label}: HTTP ${res.status} — ${text.slice(0, 120)}`);
+            text = '';
           }
           break;
         }
-        if (!text) continue;
+        if (!text) {
+          await this.delay(REQUEST_SPACING_MS);
+          continue;
+        }
 
         // GDELT reports query-syntax errors as plain text with HTTP 200 —
         // a JSON parse failure here means the query was rejected, not empty.

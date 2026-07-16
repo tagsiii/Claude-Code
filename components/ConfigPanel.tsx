@@ -56,6 +56,11 @@ export function ConfigPanel({
     strategic_priority: 'Strategic Priority',
   };
 
+  // Connectors with actual fetch code behind them. The others exist as config
+  // rows for future build-out — show them honestly instead of a dead toggle.
+  const implemented = new Set(['gdelt', 'worldbank', 'newsapi']);
+  const needsKey: Record<string, string> = { newsapi: 'NEWSAPI_KEY' };
+
   return (
     <div className="space-y-6">
       {/* Score Weights */}
@@ -110,29 +115,46 @@ export function ConfigPanel({
       <div className="card p-5">
         <h2 className="text-sm font-semibold text-foreground mb-4">Data Connectors</h2>
         <div className="space-y-1">
-          {connectors.map((c) => (
-            <div key={c.name} className="flex items-center justify-between py-2.5 border-b border-border last:border-0">
-              <div>
-                <div className="text-sm text-foreground">{c.display_name ?? c.name}</div>
-                <div className="text-xs text-muted-foreground">
-                  {c.last_run_at ? `Last run: ${formatDate(c.last_run_at)}` : 'Never run'}
+          {connectors.map((c) => {
+            const isImplemented = implemented.has(c.name);
+            return (
+              <div key={c.name} className={`flex items-center justify-between py-2.5 border-b border-border last:border-0 ${isImplemented ? '' : 'opacity-50'}`}>
+                <div>
+                  <div className="text-sm text-foreground">
+                    {c.display_name ?? c.name}
+                    {!isImplemented && (
+                      <span className="ml-2 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-secondary text-muted-foreground align-middle">
+                        coming soon
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {!isImplemented
+                      ? 'Connector not built yet'
+                      : needsKey[c.name]
+                        ? `Requires ${needsKey[c.name]} in environment · ${c.last_run_at ? `Last run: ${formatDate(c.last_run_at)}` : 'Never run'}`
+                        : c.last_run_at
+                          ? `Last run: ${formatDate(c.last_run_at)}`
+                          : 'Never run'}
+                  </div>
                 </div>
-              </div>
-              <button
-                onClick={() => toggleConnector(c.name, !c.enabled)}
-                className={`relative inline-flex h-6 w-10 items-center rounded-full transition-colors ${
-                  c.enabled ? 'bg-primary' : 'bg-secondary'
-                }`}
-                aria-label={`Toggle ${c.display_name ?? c.name}`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform ${
-                    c.enabled ? 'translate-x-5' : 'translate-x-1'
+                <button
+                  onClick={() => toggleConnector(c.name, !c.enabled)}
+                  disabled={!isImplemented}
+                  className={`relative inline-flex h-6 w-10 items-center rounded-full transition-colors disabled:cursor-not-allowed ${
+                    c.enabled && isImplemented ? 'bg-primary' : 'bg-secondary'
                   }`}
-                />
-              </button>
-            </div>
-          ))}
+                  aria-label={`Toggle ${c.display_name ?? c.name}`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform ${
+                      c.enabled && isImplemented ? 'translate-x-5' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+              </div>
+            );
+          })}
         </div>
       </div>
 

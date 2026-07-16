@@ -167,6 +167,10 @@ export async function linkSourceToDeal(dealId: string, sourceId: string): Promis
   if (error && !error.message.includes('duplicate')) throw error;
 }
 
+export async function updateSourceExcerpt(id: string, excerpt: string): Promise<void> {
+  await db.from('sources').update({ content_excerpt: excerpt.slice(0, 2000) }).eq('id', id);
+}
+
 export async function sourceExists(url: string): Promise<boolean> {
   const { data } = await db
     .from('sources')

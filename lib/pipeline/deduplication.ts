@@ -137,9 +137,21 @@ export function mergeCandidateIntoDeal(
     merged.lifecycle_reasoning = candidate.lifecycle_reasoning;
   }
 
-  // Upgrade sponsoring state if previously unknown
+  // Fill fields that were previously unknown (never overwrite known values)
   if (!existing.sponsoring_state && candidate.sponsoring_state) {
     merged.sponsoring_state = candidate.sponsoring_state;
+  }
+  if (!existing.host_country && candidate.host_country) {
+    merged.host_country = candidate.host_country;
+  }
+  if (!existing.host_region && candidate.host_region) {
+    merged.host_region = candidate.host_region;
+  }
+  if (!existing.subsector && candidate.subsector) {
+    merged.subsector = candidate.subsector;
+  }
+  if (!existing.is_confirmed && candidate.is_confirmed) {
+    merged.is_confirmed = true;
   }
 
   // Upgrade ROM value if previously unknown

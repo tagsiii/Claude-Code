@@ -10,14 +10,15 @@
 import { buildGdeltQueries } from '../lib/connectors/gdeltQueries.ts';
 
 const API = 'https://api.gdeltproject.org/api/v2/doc/doc';
-const SPACING_MS = 5500;
+const SPACING_MS = 6000;
 
 const fmt = (d: Date) => d.toISOString().replace(/[-:T]/g, '').slice(0, 14);
 const end = new Date();
 const start = new Date(end.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-const isRateLimitText = (t: string) => /limit requests|rate limit/i.test(t);
+const isRateLimited = (status: number, t: string) => status === 429 || /limit requests|rate limit/i.test(t);
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const BACKOFF_MS = [15_000, 30_000];
 
 let failures = 0;
 let totalHits = 0;
@@ -39,13 +40,14 @@ for (const { label, query } of queries) {
 
   try {
     let text = '';
-    for (let attempt = 0; attempt < 2; attempt++) {
+    for (let attempt = 0; attempt <= BACKOFF_MS.length; attempt++) {
       const res = await fetch(`${API}?${params}`, {
         headers: { 'User-Agent': 'EconomicStatecraftMonitor/1.0' },
       });
       text = await res.text();
-      if (isRateLimitText(text) && attempt === 0) {
-        await sleep(SPACING_MS + 1500);
+      if (isRateLimited(res.status, text) && attempt < BACKOFF_MS.length) {
+        console.log(`  … ${label}: throttled, backing off ${BACKOFF_MS[attempt] / 1000}s`);
+        await sleep(BACKOFF_MS[attempt]);
         continue;
       }
       break;
