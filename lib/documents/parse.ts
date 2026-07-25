@@ -66,7 +66,10 @@ async function parseWord(buffer: Buffer): Promise<string> {
 }
 
 async function parseExcel(buffer: Buffer): Promise<ParsedDocument> {
-  const XLSX = await import('xlsx');
+  // xlsx is CJS; depending on the bundler/runtime the callable API can land
+  // on .default — guard both shapes.
+  const xlsxMod = await import('xlsx');
+  const XLSX = ((xlsxMod as { default?: unknown }).default ?? xlsxMod) as typeof import('xlsx');
   const wb = XLSX.read(buffer, { type: 'buffer' });
   const parts: string[] = [];
   for (const sheetName of wb.SheetNames) {

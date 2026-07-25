@@ -3,7 +3,7 @@
 // spreadsheets from globalenergymonitor.org (free registration for some);
 // download any you want and drop them in data/gem/*.xlsx. Idempotent.
 
-import { readdirSync, existsSync } from 'node:fs';
+import { readdirSync, existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { getDb, startRunLog, finishRunLog, inBatches } from './_shared.mts';
 import { gemRecordToFacility, gemTypeForFilename, type FacilityRow } from '../../lib/geo/parsers.ts';
@@ -22,13 +22,17 @@ try {
   const files = readdirSync(dir).filter((f) => /\.(xlsx|xls)$/i.test(f));
   if (files.length === 0) throw new Error('No .xlsx files in data/gem/ — see data/README.md.');
 
-  const XLSX = await import('xlsx');
+  // xlsx ships CJS; under tsx the callable API lands on .default. Read bytes
+  // with Node fs and parse from buffer — readFile needs fs wiring the ESM
+  // build doesn't do.
+  const xlsxMod = await import('xlsx');
+  const XLSX = ((xlsxMod as { default?: unknown }).default ?? xlsxMod) as typeof import('xlsx');
   const rows: FacilityRow[] = [];
   const perFile: Record<string, number> = {};
 
   for (const file of files) {
     const type = gemTypeForFilename(file);
-    const wb = XLSX.readFile(resolve(dir, file));
+    const wb = XLSX.read(readFileSync(resolve(dir, file)), { type: 'buffer' });
     let count = 0;
     for (const sheetName of wb.SheetNames) {
       const records = XLSX.utils.sheet_to_json<Record<string, unknown>>(wb.Sheets[sheetName]);
