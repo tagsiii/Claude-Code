@@ -1,5 +1,6 @@
 import type { Deal, DealCandidate } from '../types';
-import { findSimilarDeals, findSimilarDealsBySector } from '../db/queries';
+import { findSimilarDeals, findSimilarDealsBySector, findDealsByFacility } from '../db/queries';
+import { decideFacilityDedup } from './facilityDedup';
 
 // Thresholds: BASE for candidates with no conflicting signals; STRONG when the
 // candidate and existing deal disagree on a distinguishing attribute (subsector,
@@ -50,13 +51,46 @@ export function isLikelySameDeal(
   return { match: similarity >= BASE_THRESHOLD, similarity };
 }
 
-// Returns the BEST-matching existing deal (highest similarity), not the first
-// row that clears the threshold.
+export interface DedupGeoContext {
+  facilityId: string | null;
+  sponsorKeys: string[]; // canonical sponsor names for overlap checks
+}
+
+function dealSponsorKeys(deal: Deal): string[] {
+  return [
+    ...(deal.financial_sponsors ?? []).map((s) => s.name),
+    ...(deal.sponsoring_entities ?? []).map((s) => s.name),
+  ];
+}
+
+// Returns the BEST-matching existing deal. Facility-first: when the candidate
+// resolved to a physical facility, decide by facility+subsector+sponsor rules
+// BEFORE any title comparison; title similarity is the fallback path.
 export async function findDuplicateDeal(
-  candidate: DealCandidate
+  candidate: DealCandidate,
+  geo?: DedupGeoContext
 ): Promise<{ dealId: string; isNew: boolean } | null> {
   if (!candidate.title || !candidate.sector) return null;
 
+  const candidateSponsorKeys =
+    geo?.sponsorKeys ??
+    [...(candidate.financial_sponsors ?? []), ...(candidate.sponsoring_entities ?? [])].map((s) => s.name);
+  const excludedIds = new Set<string>();
+
+  // ── Facility-first path ──────────────────────────────────────────────────────
+  if (geo?.facilityId) {
+    const atFacility = await findDealsByFacility(geo.facilityId);
+    for (const deal of atFacility) {
+      const verdict = decideFacilityDedup(
+        { facilityId: geo.facilityId, subsector: candidate.subsector, sponsorKeys: candidateSponsorKeys },
+        { facilityId: deal.facility_id ?? null, subsector: deal.subsector, sponsorKeys: dealSponsorKeys(deal) }
+      );
+      if (verdict === 'merge') return { dealId: deal.id, isNew: false };
+      if (verdict === 'distinct') excludedIds.add(deal.id); // never title-merge into it
+    }
+  }
+
+  // ── Title-similarity fallback ────────────────────────────────────────────────
   // With a host country we can prefilter tightly; without one, fall back to a
   // recent same-sector pool but demand a stronger match to compensate.
   const pool = candidate.host_country
@@ -65,6 +99,7 @@ export async function findDuplicateDeal(
 
   let best: { deal: Deal; similarity: number } | null = null;
   for (const deal of pool) {
+    if (excludedIds.has(deal.id)) continue;
     const verdict = isLikelySameDeal(candidate, deal);
     if (verdict.match && (!best || verdict.similarity > best.similarity)) {
       best = { deal, similarity: verdict.similarity };

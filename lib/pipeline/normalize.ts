@@ -1,4 +1,5 @@
 import type { DealCandidate, LifecycleStage, Sector, SponsoringEntity } from '../types';
+import { toIso3 } from '../data/countryCodes';
 
 // LLM output is probabilistic: enum values arrive with wrong casing, spaces, or
 // synonyms ("Energy", "MOU signed", "in talks"). The deals table enforces CHECK
@@ -98,14 +99,42 @@ export function normalizeKeyDates(v: unknown): Array<{ date: string; description
   return out;
 }
 
+// Short free-text lists from the LLM (facility/place names): trim, dedupe,
+// cap counts and lengths so junk output can't bloat rows.
+export function normalizeNameList(v: unknown, maxItems = 8, maxLen = 120): string[] {
+  if (!Array.isArray(v)) return [];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const item of v) {
+    if (typeof item !== 'string') continue;
+    const s = item.trim().slice(0, maxLen);
+    const key = s.toLowerCase();
+    if (!s || seen.has(key)) continue;
+    seen.add(key);
+    out.push(s);
+    if (out.length >= maxItems) break;
+  }
+  return out;
+}
+
+// ISO3 from the LLM's code when valid, else derived from the country name.
+export function normalizeIso3(rawCode: unknown, countryName: string | null): string | null {
+  if (typeof rawCode === 'string' && /^[A-Za-z]{3}$/.test(rawCode.trim())) {
+    const viaCode = toIso3(rawCode.trim());
+    if (viaCode) return viaCode;
+  }
+  return toIso3(countryName);
+}
+
 export function normalizeCandidate(raw: DealCandidate): DealCandidate {
   const r = raw as unknown as Record<string, unknown>;
   const confidence = typeof r.confidence === 'number' ? Math.min(1, Math.max(0, r.confidence)) : 0.5;
+  const hostCountry = strOrNull(r.host_country);
   return {
     title: str(r.title).slice(0, 300),
     sponsoring_state: strOrNull(r.sponsoring_state),
     sponsoring_entities: normalizeEntities(r.sponsoring_entities),
-    host_country: strOrNull(r.host_country),
+    host_country: hostCountry,
     host_region: strOrNull(r.host_region),
     sector: normalizeSector(r.sector),
     subsector: strOrNull(r.subsector),
@@ -120,5 +149,8 @@ export function normalizeCandidate(raw: DealCandidate): DealCandidate {
     key_dates: normalizeKeyDates(r.key_dates),
     source_urls: Array.isArray(r.source_urls) ? (r.source_urls as unknown[]).filter((u): u is string => typeof u === 'string') : [],
     confidence,
+    named_facilities: normalizeNameList(r.named_facilities),
+    place_names: normalizeNameList(r.place_names),
+    host_country_iso3: normalizeIso3(r.host_country_iso3, hostCountry),
   };
 }

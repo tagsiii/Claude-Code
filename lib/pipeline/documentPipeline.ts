@@ -60,12 +60,14 @@ export async function analyzeDocument(docId: string): Promise<DocumentAnalysisRe
     let created = 0;
     let updated = 0;
     const candidateErrors: string[] = [];
+    const geoWarnings: string[] = [];
     for (const candidate of candidates) {
       try {
         const outcome = await ingestCandidate(candidate, {
           pinnedSources: [pinned],
           sourceConfidenceTier: 1,
           generateSummaries: true,
+          warnings: geoWarnings,
         });
         if (outcome === 'created') created++;
         else if (outcome === 'updated') updated++;
@@ -92,6 +94,7 @@ export async function analyzeDocument(docId: string): Promise<DocumentAnalysisRe
         filename: doc.filename,
         ...(llmErrors.length > 0 ? { llm_errors: llmErrors.slice(0, 6) } : {}),
         ...(candidateErrors.length > 0 ? { candidate_errors: candidateErrors.slice(0, 12) } : {}),
+        ...(geoWarnings.length > 0 ? { geo_warnings: [...new Set(geoWarnings)].slice(0, 6) } : {}),
       },
     });
 

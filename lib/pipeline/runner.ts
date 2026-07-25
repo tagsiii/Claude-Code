@@ -77,12 +77,14 @@ export async function runIngestionPipeline(opts: RunOptions = {}): Promise<Inges
       // Collect (don't swallow) per-candidate failures — a vanished deal with
       // no trace is undebuggable.
       const candidateErrors: string[] = [];
+      const geoWarnings: string[] = [];
       for (const candidate of candidates) {
         try {
           const outcome = await ingestCandidate(candidate, {
             sourcesByUrl,
             sourceConfidenceTier: 2,
             generateSummaries: true,
+            warnings: geoWarnings,
           });
           if (outcome === 'created') dealsCreated++;
           else if (outcome === 'updated') dealsUpdated++;
@@ -98,12 +100,13 @@ export async function runIngestionPipeline(opts: RunOptions = {}): Promise<Inges
         deals_found: dealsFound,
         deals_created: dealsCreated,
         deals_updated: dealsUpdated,
-        ...(candidateErrors.length > 0 || llmErrors.length > 0 || connectorWarnings.length > 0
+        ...(candidateErrors.length > 0 || llmErrors.length > 0 || connectorWarnings.length > 0 || geoWarnings.length > 0
           ? {
               metadata: {
                 ...(connectorWarnings.length > 0 ? { connector_warnings: connectorWarnings.slice(0, 8) } : {}),
                 ...(llmErrors.length > 0 ? { llm_errors: llmErrors.slice(0, 6) } : {}),
                 ...(candidateErrors.length > 0 ? { candidate_errors: candidateErrors.slice(0, 12) } : {}),
+                ...(geoWarnings.length > 0 ? { geo_warnings: [...new Set(geoWarnings)].slice(0, 6) } : {}),
               },
             }
           : {}),

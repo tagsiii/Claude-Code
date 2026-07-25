@@ -1,5 +1,6 @@
 import { BaseConnector, ConnectorOptions } from './base';
-import { buildGdeltQueries } from './gdeltQueries';
+import { buildGdeltQueriesLive } from './gdeltQueries';
+import { db } from '../db/client';
 import type { RawArticle } from '../types';
 
 const GDELT_DOC_API = 'https://api.gdeltproject.org/api/v2/doc/doc';
@@ -45,7 +46,15 @@ export class GdeltConnector extends BaseConnector {
     const start = new Date(end.getTime() - lookback * 24 * 60 * 60 * 1000);
     const fmt = (d: Date) => d.toISOString().replace(/[-:T]/g, '').slice(0, 14);
 
-    const queries = buildGdeltQueries();
+    // Entity watchlist generated from the canonical sponsors table when the
+    // geo migration is applied; static groups otherwise.
+    const queries = await buildGdeltQueriesLive(async () => {
+      const { data, error } = await db
+        .from('sponsors')
+        .select('canonical_name, is_state_backed, entity_type');
+      if (error) throw new Error(error.message);
+      return data ?? [];
+    });
 
     for (const { label, query } of queries) {
       try {

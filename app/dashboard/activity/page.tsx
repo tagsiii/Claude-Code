@@ -12,6 +12,7 @@ interface LogMeta {
   candidate_errors?: string[];
   llm_errors?: string[];
   connector_warnings?: string[];
+  geo_warnings?: string[];
 }
 
 function meta(log: IngestLog): LogMeta {
@@ -200,6 +201,7 @@ function RunErrors({ log }: { log: IngestLog }) {
   if (Array.isArray(m.connector_warnings)) errors.push(...m.connector_warnings);
   if (Array.isArray(m.llm_errors)) errors.push(...m.llm_errors);
   if (Array.isArray(m.candidate_errors)) errors.push(...m.candidate_errors);
+  if (Array.isArray(m.geo_warnings)) errors.push(...m.geo_warnings);
   if (errors.length === 0) return null;
   return (
     <div className="mt-2 rounded-xl bg-destructive/5 border border-destructive/20 px-3 py-2 space-y-0.5">

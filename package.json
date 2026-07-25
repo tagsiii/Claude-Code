@@ -7,9 +7,14 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "npx --yes tsx tests/pipeline.test.mts",
+    "test": "npx --yes tsx tests/pipeline.test.mts && npx --yes tsx tests/geo.test.mts",
     "gdelt:check": "npx --yes tsx scripts/check-gdelt.mts",
-    "db:setup": "node scripts/setup-db.js"
+    "db:setup": "node scripts/setup-db.js",
+    "load:countries": "npx --yes tsx scripts/loaders/load-countries.mts",
+    "load:wpi": "npx --yes tsx scripts/loaders/load-wpi.mts",
+    "load:gem": "npx --yes tsx scripts/loaders/load-gem.mts",
+    "load:cables": "npx --yes tsx scripts/loaders/load-cables.mts",
+    "load:all": "npx --yes tsx scripts/loaders/load-all.mts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.27.3",

@@ -34,6 +34,25 @@ extra Storage policies are needed.
 
 ---
 
+### Step 1c — Geospatial layer (optional)
+
+To enable the geo layer (deal geocoding, facility gazetteer, spatial signals),
+run `lib/db/geo.sql` in the SQL Editor — it enables PostGIS + pg_trgm and
+creates the reference tables and helper functions. Then load reference data
+locally (see `data/README.md`):
+
+```bash
+npm run load:countries   # Natural Earth (auto-downloads) + ISO3 backfill
+npm run load:wpi         # World Port Index (needs data/wpi.csv)
+npm run load:gem         # Global Energy Monitor (needs data/gem/*.xlsx)
+npm run load:cables      # optional, user-provided file (licensing — see README)
+```
+
+The app works fully without this step — geocoding simply stays inactive until
+the migration is applied.
+
+---
+
 ## Step 2 — Environment variables
 
 Copy `.env.example` to `.env.local` and fill in all values:

@@ -17,6 +17,18 @@ export type LifecycleStage =
 
 export type ConfidenceTier = 1 | 2 | 3; // 1=primary/official, 2=established press, 3=secondary
 
+export type LocationPrecision = 'exact' | 'facility' | 'city' | 'country_centroid' | 'unknown';
+
+export interface SponsorRow {
+  id: string;
+  canonical_name: string;
+  aliases: string[];
+  country_iso3: string | null;
+  is_state_backed: boolean;
+  entity_type: 'soe' | 'policy_bank' | 'dfi' | 'private' | 'sovereign_fund' | 'agency';
+  needs_review: boolean;
+}
+
 export interface SponsoringEntity {
   name: string;
   type: 'policy_bank' | 'soe' | 'sovereign_fund' | 'commercial' | 'unknown';
@@ -92,6 +104,20 @@ export interface Deal {
   first_seen_at: string;
   last_updated_at: string;
   created_at: string;
+  // geospatial (Phase 1+; nullable until geo.sql migration is applied)
+  country_iso3?: string | null;
+  location_precision?: LocationPrecision | null;
+  facility_id?: string | null;
+  flag_near_cable_landing?: boolean;
+  flag_near_cable_landing_reason?: string | null;
+  flag_white_space?: boolean;
+  flag_white_space_reason?: string | null;
+  flag_contested_asset?: boolean;
+  flag_contested_asset_reason?: string | null;
+  flag_us_positioning?: boolean;
+  flag_us_positioning_reason?: string | null;
+  flag_unpositioned_mdb?: boolean;
+  flag_unpositioned_mdb_reason?: string | null;
   // joined fields
   sources?: Source[];
   events?: DealEvent[];
@@ -229,4 +255,8 @@ export interface DealCandidate {
   key_dates: Array<{ date: string; description: string }>;
   source_urls: string[];
   confidence: number; // 0–1, LLM self-assessed
+  // geospatial extraction fields (Phase 1)
+  named_facilities: string[];
+  place_names: string[];
+  host_country_iso3: string | null;
 }

@@ -32,7 +32,10 @@ Return a JSON array. Each element is a distinct deal with this schema:
   "is_confirmed": false,
   "confidence": 0.0-1.0,
   "source_urls": ["url1", "url2"],
-  "key_dates": [{"date": "YYYY-MM-DD or YYYY-MM or YYYY", "description": "event"}]
+  "key_dates": [{"date": "YYYY-MM-DD or YYYY-MM or YYYY", "description": "event"}],
+  "named_facilities": ["specific named facilities mentioned, e.g. 'Hambantota Port', 'El Dabaa nuclear plant', 'Simandou mine'"],
+  "place_names": ["cities or specific locations mentioned, most specific first"],
+  "host_country_iso3": "ISO 3166-1 alpha-3 code for host_country (e.g. 'TZA'), or null",
 }
 
 Return ONLY valid JSON array. No markdown, no explanation outside the JSON.`;
@@ -86,6 +89,11 @@ Return a JSON array (possibly empty). Each element is a distinct deal with this 
   "key_dates": [{"date": "YYYY-MM-DD or YYYY-MM or YYYY", "description": "event"}]
 }
 
+Also include in each element:
+  "named_facilities": ["specific named facilities mentioned, e.g. 'Hambantota Port', 'El Dabaa nuclear plant', 'Simandou mine'"],
+  "place_names": ["cities or specific locations mentioned, most specific first"],
+  "host_country_iso3": "ISO 3166-1 alpha-3 code for host_country (e.g. 'TZA'), or null",
+
 Leave "source_urls" as an empty array — the source is the uploaded document itself.
 Return ONLY valid JSON array. No markdown, no explanation outside the JSON.`;
 
@@ -111,7 +119,10 @@ Return ONLY a JSON object (no markdown) with this schema:
   "financial_sponsors": [same schema],
   "is_confirmed": true or false,
   "confidence": 0.0-1.0,
-  "key_dates": [{"date":"YYYY-MM-DD or YYYY-MM or YYYY","description":"event"}]
+  "key_dates": [{"date":"YYYY-MM-DD or YYYY-MM or YYYY","description":"event"}],
+  "named_facilities": ["specific named facilities in the text"],
+  "place_names": ["cities/locations in the text"],
+  "host_country_iso3": "ISO alpha-3 code or null"
 }`;
 
 export function buildEnrichmentPrompt(

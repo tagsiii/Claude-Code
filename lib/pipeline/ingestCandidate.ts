@@ -4,13 +4,16 @@ import {
   linkSourceToDeal,
   addDealEvent,
   updateSourceExcerpt,
+  linkDealSponsor,
 } from '../db/queries';
 import { findDuplicateDeal, mergeCandidateIntoDeal } from './deduplication';
 import { normalizeCandidate } from './normalize';
+import { resolveSponsorEntities } from './sponsors';
+import { geocodeCandidate, applyDealLocation, type GeoResult } from './geocode';
 import { scoreDeal } from './scoring';
 import { generateDealSummary, extractDealFacts } from '../llm/analyze';
 import { fetchArticleText } from '../utils/articleFetch';
-import type { ConfidenceTier, Deal, DealCandidate } from '../types';
+import type { ConfidenceTier, Deal, DealCandidate, LocationPrecision } from '../types';
 
 export interface IngestSourceRef {
   id: string;
@@ -31,7 +34,13 @@ export interface CandidateContext {
   sourceConfidenceTier?: ConfidenceTier;
   // Whether to spend an LLM call generating executive summary + diplomatic context.
   generateSummaries?: boolean;
+  // Sink for non-fatal geo/sponsor resolution problems (recorded in run logs).
+  warnings?: string[];
 }
+
+const PRECISION_RANK: Record<LocationPrecision, number> = {
+  exact: 4, facility: 3, city: 2, country_centroid: 1, unknown: 0,
+};
 
 export type IngestOutcome = 'created' | 'updated' | 'skipped';
 
@@ -63,7 +72,25 @@ export async function ingestCandidate(
   if (!candidate.title) return 'skipped';
 
   const sources = resolveSources(candidate, ctx);
-  const dup = await findDuplicateDeal(candidate);
+
+  // Canonical sponsor resolution (best-effort; canonicalizes JSONB names and
+  // yields sponsor ids for the junction table + dedup overlap checks).
+  const resolvedFinancial = await resolveSponsorEntities(candidate.financial_sponsors, ctx.warnings);
+  candidate.financial_sponsors = resolvedFinancial.map((r) => r.entity);
+  const resolvedSponsoring = await resolveSponsorEntities(candidate.sponsoring_entities, ctx.warnings);
+  candidate.sponsoring_entities = resolvedSponsoring.map((r) => r.entity);
+  const sponsorIds = [...resolvedFinancial, ...resolvedSponsoring]
+    .map((r) => r.sponsorId)
+    .filter((id): id is string => !!id);
+  const sponsorKeys = [...candidate.financial_sponsors, ...candidate.sponsoring_entities].map((s) => s.name);
+
+  // Geocode: facility → city → country centroid (best-effort).
+  const geo: GeoResult | null = await geocodeCandidate(candidate, ctx.warnings);
+
+  const dup = await findDuplicateDeal(candidate, {
+    facilityId: geo?.facilityId ?? null,
+    sponsorKeys,
+  });
 
   if (dup && !dup.isNew) {
     const existing = await getDealById(dup.dealId);
@@ -96,6 +123,28 @@ export async function ingestCandidate(
     });
 
     await logChangeEvents(existing, merged, newlyLinked);
+
+    // Geo upgrade on merge: better precision wins, never downgrades.
+    if (geo) {
+      const existingRank = PRECISION_RANK[existing.location_precision ?? 'unknown'] ?? 0;
+      if (PRECISION_RANK[geo.precision] > existingRank) {
+        const ok = await applyDealLocation(existing.id, geo, ctx.warnings);
+        if (ok && geo.precision === 'facility' && geo.facilityName) {
+          try {
+            await addDealEvent({
+              deal_id: existing.id,
+              event_date: today(),
+              description: `Location resolved to facility: ${geo.facilityName}`,
+              source_id: null,
+            });
+          } catch { /* non-fatal */ }
+        }
+      }
+    }
+    for (const sponsorId of sponsorIds) {
+      try { await linkDealSponsor(existing.id, sponsorId); } catch { /* pre-migration */ }
+    }
+
     return 'updated';
   }
 
@@ -131,6 +180,24 @@ export async function ingestCandidate(
 
   for (const ref of sources) {
     await linkSourceToDeal(newDeal.id, ref.id);
+  }
+
+  // Location + canonical sponsor links (best-effort; no-ops before migration).
+  if (geo) {
+    const ok = await applyDealLocation(newDeal.id, geo, ctx.warnings);
+    if (ok && geo.precision === 'facility' && geo.facilityName) {
+      try {
+        await addDealEvent({
+          deal_id: newDeal.id,
+          event_date: today(),
+          description: `Location resolved to facility: ${geo.facilityName}`,
+          source_id: null,
+        });
+      } catch { /* non-fatal */ }
+    }
+  }
+  for (const sponsorId of sponsorIds) {
+    try { await linkDealSponsor(newDeal.id, sponsorId); } catch { /* pre-migration */ }
   }
 
   // Seed the timeline: a "first seen" marker plus any LLM-extracted key dates.

@@ -104,6 +104,61 @@ export function nearClause(sponsor: string, asset: string): string {
   return `near${NEAR_DISTANCE}:"${sponsor} ${asset}"`;
 }
 
+// ─── Sponsor-driven watchlist (Phase 1 geo layer) ─────────────────────────────
+// The entity layer can be generated from the canonical `sponsors` table instead
+// of the hardcoded groups above. Pure + budget-aware so it is testable offline;
+// the static ENTITY_GROUPS remain the fallback when the DB is unavailable
+// (offline checker, tests, pre-migration).
+const MAX_TERMS_PER_QUERY = 7;
+const MAX_QUERY_CHARS = 200;
+
+export function buildEntityQueriesFromSponsors(
+  sponsors: Array<{ canonical_name: string; is_state_backed: boolean; entity_type: string }>
+): GdeltQuery[] {
+  const watch = sponsors.filter(
+    (s) => s.is_state_backed && ['soe', 'policy_bank', 'sovereign_fund'].includes(s.entity_type)
+  );
+  const terms = watch.map((s) =>
+    /\s/.test(s.canonical_name) ? `"${s.canonical_name}"` : s.canonical_name
+  );
+
+  const queries: GdeltQuery[] = [];
+  let group: string[] = [];
+  let index = 1;
+  const flush = () => {
+    if (group.length === 0) return;
+    queries.push({ label: `watchlist-${index++}`, query: `(${group.join(' OR ')})` });
+    group = [];
+  };
+  for (const term of terms) {
+    const projected = group.length === 0 ? term.length + 2 : `(${[...group, term].join(' OR ')})`.length;
+    if (group.length >= MAX_TERMS_PER_QUERY || projected > MAX_QUERY_CHARS) flush();
+    group.push(term);
+  }
+  flush();
+  return queries;
+}
+
+// Runtime variant used by the connector: entity layer from the sponsors table
+// when available, static groups otherwise. Proximity + instrument layers are
+// always static.
+export async function buildGdeltQueriesLive(
+  fetchSponsors: () => Promise<Array<{ canonical_name: string; is_state_backed: boolean; entity_type: string }>>
+): Promise<GdeltQuery[]> {
+  const staticQueries = buildGdeltQueries();
+  try {
+    const sponsors = await fetchSponsors();
+    const generated = buildEntityQueriesFromSponsors(sponsors);
+    if (generated.length === 0) return staticQueries;
+    const nonEntity = staticQueries.filter(
+      (q) => !ENTITY_GROUPS.some((g) => g.label === q.label)
+    );
+    return [...nonEntity, ...generated];
+  } catch {
+    return staticQueries;
+  }
+}
+
 export function buildGdeltQueries(): GdeltQuery[] {
   const queries: GdeltQuery[] = [];
 

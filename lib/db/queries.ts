@@ -133,6 +133,25 @@ export async function findSimilarDeals(
   return (data ?? []) as Deal[];
 }
 
+// Active deals resolved to the same physical facility (facility-first dedup).
+export async function findDealsByFacility(facilityId: string): Promise<Deal[]> {
+  const { data, error } = await db
+    .from('deals')
+    .select('*')
+    .eq('status', 'active')
+    .eq('facility_id', facilityId)
+    .limit(20);
+  if (error) return [];
+  return (data ?? []) as Deal[];
+}
+
+export async function linkDealSponsor(dealId: string, sponsorId: string): Promise<void> {
+  const { error } = await db
+    .from('deal_sponsors')
+    .upsert({ deal_id: dealId, sponsor_id: sponsorId }, { onConflict: 'deal_id,sponsor_id' });
+  if (error && !error.message.includes('duplicate')) throw error;
+}
+
 // Wider dedup pool for candidates with no host country — caller compensates by
 // demanding a stronger title match.
 export async function findSimilarDealsBySector(sector: string, limit = 50): Promise<Deal[]> {
