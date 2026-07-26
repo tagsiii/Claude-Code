@@ -235,6 +235,66 @@ export function gemPipelineRecordToFacility(rec: Record<string, unknown>): Facil
   };
 }
 
+// ─── Generic flat-XML → records (EXIM FOIA reports etc.) ──────────────────────
+// Government data XML is typically one repeated record element, either with
+// leaf children (<Record><Country>Kenya</Country>…</Record>) or attribute rows
+// (<row Country="Kenya" …/>). Detect whichever shape is present.
+function decodeXml(s: string): string {
+  return s
+    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"').replace(/&apos;|&#39;/g, "'")
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(parseInt(n, 10)));
+}
+
+export function xmlToRecords(xml: string): Array<Record<string, unknown>> {
+  const cleaned = xml.replace(/<\?[\s\S]*?\?>/g, '').replace(/<!--[\s\S]*?-->/g, '');
+
+  // Shape A: self-closing attribute rows.
+  const selfClosing = [...cleaned.matchAll(/<(\w[\w.-]*)((?:\s+[\w.-]+="[^"]*")+)\s*\/>/g)];
+  const scTally = new Map<string, number>();
+  for (const m of selfClosing) scTally.set(m[1], (scTally.get(m[1]) ?? 0) + 1);
+  const scBest = [...scTally.entries()].sort((a, b) => b[1] - a[1])[0];
+  if (scBest && scBest[1] >= 2) {
+    return selfClosing
+      .filter((m) => m[1] === scBest[0])
+      .map((m) => {
+        const rec: Record<string, unknown> = {};
+        for (const am of m[2].matchAll(/([\w.-]+)="([^"]*)"/g)) rec[am[1]] = decodeXml(am[2]);
+        return rec;
+      });
+  }
+
+  // Shape B: repeated container elements with leaf children. Try candidate
+  // tags from most frequent down; leaf tags yield empty records and are skipped.
+  const tally = new Map<string, number>();
+  for (const m of cleaned.matchAll(/<(\w[\w.-]*)[\s>]/g)) tally.set(m[1], (tally.get(m[1]) ?? 0) + 1);
+  const candidates = [...tally.entries()].filter(([, n]) => n >= 2).sort((a, b) => b[1] - a[1]);
+  for (const [tag] of candidates) {
+    const blocks = [...cleaned.matchAll(new RegExp(`<${tag}(?:\\s[^>]*)?>([\\s\\S]*?)</${tag}>`, 'g'))];
+    if (blocks.length < 2) continue;
+    if (!blocks[0][1].includes('<')) continue; // leaf tag, not a record container
+    const records = blocks
+      .map((b) => {
+        const rec: Record<string, unknown> = {};
+        for (const fm of b[1].matchAll(/<([\w.-]+)(?:\s[^>]*)?>([^<]*)<\/\1>/g)) {
+          rec[fm[1]] = decodeXml(fm[2].trim());
+        }
+        return rec;
+      })
+      .filter((r) => Object.keys(r).length >= 2);
+    if (records.length >= 2) return records;
+  }
+  return [];
+}
+
+// Top tag names by frequency — printed when an XML file parses to zero rows.
+export function xmlTagSummary(xml: string, top = 12): string {
+  const tally = new Map<string, number>();
+  for (const m of xml.matchAll(/<(\w[\w.-]*)[\s/>]/g)) tally.set(m[1], (tally.get(m[1]) ?? 0) + 1);
+  return [...tally.entries()].sort((a, b) => b[1] - a[1]).slice(0, top)
+    .map(([t, n]) => `${t}(${n})`).join(' | ');
+}
+
 // ─── Natural Earth admin-0 GeoJSON feature → country row ──────────────────────
 export interface CountryRow {
   iso3: string;

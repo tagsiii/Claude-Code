@@ -7,6 +7,7 @@ import { aidDataProjectToRow, eezFeatureToRow, wbProjectToMdb, ustdaPostToActivi
   dfcRecordToActivity, eximRecordToActivity, mccRecordToActivity, ppiRecordToMdb,
   oecdCsvRowToFinance, inferSector } from '../lib/geo/activityParsers.ts';
 import { findCountryInText } from '../lib/data/countryCodes.ts';
+import { xmlToRecords, xmlTagSummary } from '../lib/geo/parsers.ts';
 
 let pass = 0, fail = 0;
 function check(name: string, cond: boolean, detail = '') {
@@ -132,6 +133,25 @@ console.log('── shpjs loads under this runtime (EEZ loader dependency) ─�
   const d = (m as { default?: unknown }).default;
   check('default export is callable', typeof d === 'function');
   check('parseZip export present', typeof (m as never as Record<string, unknown>).parseZip === 'function');
+}
+
+
+console.log('── Flat-XML parsing (EXIM FOIA style) ──');
+{
+  const elementXml = `<?xml version="1.0"?><Report><Meta>FY2023</Meta>
+    <Authorization><Country>Kenya</Country><PrimaryBorrower>Acme Power Ltd</PrimaryBorrower><AuthorizedAmount>1,200,000</AuthorizedAmount></Authorization>
+    <Authorization><Country>India</Country><PrimaryBorrower>Bharat Rail</PrimaryBorrower><AuthorizedAmount>5&amp;500</AuthorizedAmount></Authorization>
+  </Report>`;
+  const recs = xmlToRecords(elementXml);
+  check('element-children XML → records', recs.length === 2 && recs[0]['Country'] === 'Kenya');
+  check('XML entities decoded', recs[1]['AuthorizedAmount'] === '5&500');
+  check('EXIM parser consumes XML records', eximRecordToActivity(recs[0] as never)?.iso3 === 'KEN');
+
+  const attrXml = `<data><row Country="Benin" Program="Power Compact" Amount="375"/><row Country="Ghana" Program="Roads" Amount="12"/></data>`;
+  const attrRecs = xmlToRecords(attrXml);
+  check('attribute-row XML → records', attrRecs.length === 2 && attrRecs[1]['Country'] === 'Ghana');
+  check('tag summary names frequent tags', xmlTagSummary(elementXml).includes('Authorization(2)'));
+  check('empty/unstructured XML → []', xmlToRecords('<a>plain text only</a>').length === 0);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

@@ -4,10 +4,10 @@
 // parser, and upserts into us_activity (DFC/EXIM/MCC) or mdb_pipeline (PPI).
 // Zero-count runs print the file's actual columns for parser extension.
 
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { getDb, startRunLog, finishRunLog } from './_shared.mts';
-import { csvToRecords, detectHeaderRow, rowsToRecords } from '../../lib/geo/parsers.ts';
+import { csvToRecords, detectHeaderRow, rowsToRecords, xmlToRecords, xmlTagSummary } from '../../lib/geo/parsers.ts';
 import {
   dfcRecordToActivity, eximRecordToActivity, mccRecordToActivity, ppiRecordToMdb,
   type UsActivityRow, type MdbRow,
@@ -35,33 +35,54 @@ const db = getDb();
 const logId = await startRunLog(db, `load:${key}`);
 
 try {
-  // Find the file: data/<key>.xlsx or data/<key>.csv
-  const xlsxPath = resolve(process.cwd(), `data/${key}.xlsx`);
-  const csvPath = resolve(process.cwd(), `data/${key}.csv`);
-  let records: Array<Record<string, unknown>> = [];
-  let sourceFile = '';
+  // Accept MULTIPLE files per source: data/<key>*.xlsx|xls|csv|xml
+  // (e.g. dfc-1.xlsx + dfc-2.xlsx, or exim-fy2019..2023.xml).
+  const dataDir = resolve(process.cwd(), 'data');
+  const files = existsSync(dataDir)
+    ? readdirSync(dataDir)
+        .filter((f) => f.toLowerCase().startsWith(key) && /\.(xlsx|xls|csv|xml)$/i.test(f))
+        .sort()
+    : [];
+  if (files.length === 0) {
+    throw new Error(
+      `No data/${key}*.xlsx|csv|xml files found. Download from: ${config.download} (see data/README.md).`
+    );
+  }
 
-  if (existsSync(xlsxPath)) {
-    sourceFile = `data/${key}.xlsx`;
-    const xlsxMod = await import('xlsx');
-    const XLSX = ((xlsxMod as { default?: unknown }).default ?? xlsxMod) as typeof import('xlsx');
-    const wb = XLSX.read(readFileSync(xlsxPath), { type: 'buffer' });
-    for (const sheetName of wb.SheetNames) {
-      const raw = XLSX.utils.sheet_to_json<unknown[]>(wb.Sheets[sheetName], { header: 1 });
-      records.push(...rowsToRecords(raw as unknown[][], detectHeaderRow(raw as unknown[][])));
+  const rows: Array<UsActivityRow | MdbRow> = [];
+  let totalRecords = 0;
+  for (const file of files) {
+    const full = resolve(dataDir, file);
+    let records: Array<Record<string, unknown>> = [];
+    if (/\.(xlsx|xls)$/i.test(file)) {
+      const xlsxMod = await import('xlsx');
+      const XLSX = ((xlsxMod as { default?: unknown }).default ?? xlsxMod) as typeof import('xlsx');
+      const wb = XLSX.read(readFileSync(full), { type: 'buffer' });
+      for (const sheetName of wb.SheetNames) {
+        const raw = XLSX.utils.sheet_to_json<unknown[]>(wb.Sheets[sheetName], { header: 1 });
+        records.push(...rowsToRecords(raw as unknown[][], detectHeaderRow(raw as unknown[][])));
+      }
+    } else if (/\.csv$/i.test(file)) {
+      records = csvToRecords(readFileSync(full, 'utf8'));
+    } else {
+      records = xmlToRecords(readFileSync(full, 'utf8'));
     }
-  } else if (existsSync(csvPath)) {
-    sourceFile = `data/${key}.csv`;
-    records = csvToRecords(readFileSync(csvPath, 'utf8'));
-  } else {
-    throw new Error(`data/${key}.xlsx or data/${key}.csv not found. Download from: ${config.download} (see data/README.md).`);
-  }
 
-  const rows = records.map(config.parse).filter((r): r is NonNullable<typeof r> => r !== null);
-  console.log(`${sourceFile}: ${rows.length} rows parsed from ${records.length} records`);
-  if (rows.length === 0 && records.length > 0) {
-    console.log(`  ⚠ no rows matched. Columns: ${Object.keys(records[0]).slice(0, 40).join(' | ')}`);
+    const parsed = records.map(config.parse).filter((r): r is NonNullable<typeof r> => r !== null);
+    rows.push(...parsed);
+    totalRecords += records.length;
+    console.log(`data/${file}: ${parsed.length} rows parsed from ${records.length} records`);
+    if (parsed.length === 0) {
+      if (/\.xml$/i.test(file)) {
+        console.log(`  ⚠ no rows matched. XML tags: ${xmlTagSummary(readFileSync(full, 'utf8'))}`);
+        if (records.length > 0) console.log(`  ⚠ detected record fields: ${Object.keys(records[0]).slice(0, 40).join(' | ')}`);
+      } else if (records.length > 0) {
+        console.log(`  ⚠ no rows matched. Columns: ${Object.keys(records[0]).slice(0, 40).join(' | ')}`);
+      }
+    }
   }
+  const sourceFile = files.join(', ');
+  console.log(`Total: ${rows.length} rows from ${totalRecords} records across ${files.length} file(s)`);
 
   let ok = 0;
   const errors: string[] = [];
