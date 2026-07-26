@@ -102,6 +102,7 @@ export async function buildDocx(deals: Deal[], config: ExportConfig): Promise<Bu
         children.push(new Paragraph({ children: [new TextRun({ text: 'Score Breakdown', bold: true, size: 18 })] }));
         for (const [key, label] of SCORE_DIMS) {
           const sub = d.score_breakdown[key];
+          if (!sub) continue; // breakdown is JSONB — dimensions can be absent
           children.push(
             new Paragraph({
               children: [

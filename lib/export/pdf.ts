@@ -65,6 +65,7 @@ export async function buildPdf(deals: Deal[], config: ExportConfig): Promise<Buf
         doc.font('Helvetica-Bold').fontSize(9).fillColor('#333333').text('Score Breakdown');
         for (const [key, label] of SCORE_DIMS) {
           const sub = d.score_breakdown[key];
+          if (!sub) continue; // breakdown is JSONB — dimensions can be absent
           doc.font('Helvetica').fontSize(9).fillColor('#222222');
           doc.text(`• ${label} (${sub.score}/100, ${(sub.weight * 100).toFixed(0)}%): ${sub.reasoning}`);
         }

@@ -160,16 +160,25 @@ export function mergeCandidateIntoDeal(
 ): Partial<Deal> {
   const merged: Partial<Deal> = {};
 
-  // Upgrade lifecycle stage (never downgrade)
+  // Upgrade lifecycle stage (never downgrade). `cancelled` is terminal and
+  // sits outside the forward ordering: a cancelled deal is never resurrected
+  // by later reporting, and a credible cancellation report always lands.
   const stageOrder = [
     'rumored', 'exploratory_mou', 'negotiation', 'signed',
     'financing_secured', 'under_construction', 'completed',
   ];
-  const existingIdx = stageOrder.indexOf(existing.lifecycle_stage);
-  const candidateIdx = stageOrder.indexOf(candidate.lifecycle_stage);
-  if (candidateIdx > existingIdx) {
-    merged.lifecycle_stage = candidate.lifecycle_stage;
-    merged.lifecycle_reasoning = candidate.lifecycle_reasoning;
+  if (existing.lifecycle_stage !== 'cancelled') {
+    if (candidate.lifecycle_stage === 'cancelled') {
+      merged.lifecycle_stage = 'cancelled';
+      merged.lifecycle_reasoning = candidate.lifecycle_reasoning;
+    } else {
+      const existingIdx = stageOrder.indexOf(existing.lifecycle_stage);
+      const candidateIdx = stageOrder.indexOf(candidate.lifecycle_stage);
+      if (candidateIdx > existingIdx) {
+        merged.lifecycle_stage = candidate.lifecycle_stage;
+        merged.lifecycle_reasoning = candidate.lifecycle_reasoning;
+      }
+    }
   }
 
   // Fill fields that were previously unknown (never overwrite known values)

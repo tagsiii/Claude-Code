@@ -34,8 +34,8 @@ for (const { label, query } of queries) {
     format: 'json',
     maxrecords: '100',
     sort: 'DateDesc',
-    startdatetimelocal: fmt(start),
-    enddatetimelocal: fmt(end),
+    startdatetime: fmt(start),
+    enddatetime: fmt(end),
   });
 
   try {

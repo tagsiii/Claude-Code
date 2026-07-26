@@ -64,8 +64,8 @@ export class GdeltConnector extends BaseConnector {
           format: 'json',
           maxrecords: '100',
           sort: 'DateDesc',
-          startdatetimelocal: fmt(start),
-          enddatetimelocal: fmt(end),
+          startdatetime: fmt(start),
+          enddatetime: fmt(end),
         });
         const url = `${GDELT_DOC_API}?${params}`;
 

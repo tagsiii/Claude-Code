@@ -107,7 +107,35 @@ export async function ingestCandidate(
       if (!alreadyLinked.has(ref.id)) newlyLinked++;
     }
 
-    if (!hasFieldChanges && newlyLinked === 0) return 'skipped';
+    // Geo upgrade on merge: better precision wins, never downgrades. Runs
+    // BEFORE the skip check — a re-seen candidate whose facility now resolves
+    // (e.g. the gazetteer was loaded after the deal was created) must still
+    // upgrade the location even when no other field changed.
+    let geoUpgraded = false;
+    if (geo) {
+      const existingRank = PRECISION_RANK[existing.location_precision ?? 'unknown'] ?? 0;
+      if (PRECISION_RANK[geo.precision] > existingRank) {
+        const ok = await applyDealLocation(existing.id, geo, ctx.warnings);
+        if (ok) {
+          geoUpgraded = true;
+          if (geo.precision === 'facility' && geo.facilityName) {
+            try {
+              await addDealEvent({
+                deal_id: existing.id,
+                event_date: today(),
+                description: `Location resolved to facility: ${geo.facilityName}`,
+                source_id: null,
+              });
+            } catch { /* non-fatal */ }
+          }
+        }
+      }
+    }
+    for (const sponsorId of sponsorIds) {
+      try { await linkDealSponsor(existing.id, sponsorId); } catch { /* pre-migration */ }
+    }
+
+    if (!hasFieldChanges && newlyLinked === 0) return geoUpgraded ? 'updated' : 'skipped';
 
     const newSourceCount = existing.source_count + newlyLinked;
     const nextState = { ...existing, ...merged, source_count: newSourceCount };
@@ -124,34 +152,15 @@ export async function ingestCandidate(
 
     await logChangeEvents(existing, merged, newlyLinked);
 
-    // Geo upgrade on merge: better precision wins, never downgrades.
-    if (geo) {
-      const existingRank = PRECISION_RANK[existing.location_precision ?? 'unknown'] ?? 0;
-      if (PRECISION_RANK[geo.precision] > existingRank) {
-        const ok = await applyDealLocation(existing.id, geo, ctx.warnings);
-        if (ok && geo.precision === 'facility' && geo.facilityName) {
-          try {
-            await addDealEvent({
-              deal_id: existing.id,
-              event_date: today(),
-              description: `Location resolved to facility: ${geo.facilityName}`,
-              source_id: null,
-            });
-          } catch { /* non-fatal */ }
-        }
-      }
-    }
-    for (const sponsorId of sponsorIds) {
-      try { await linkDealSponsor(existing.id, sponsorId); } catch { /* pre-migration */ }
-    }
-
     return 'updated';
   }
 
   // ─── New deal ────────────────────────────────────────────────────────────────
+  // Score against the SAME source_count that gets stored — cited-but-unresolved
+  // URLs must not inflate the score, or the next merge silently rescores lower.
   const { composite, breakdown } = await scoreDeal({
     ...(candidate as Partial<Deal>),
-    source_count: sources.length || candidate.source_urls?.length || 1,
+    source_count: sources.length || 1,
     source_confidence_tier: ctx.sourceConfidenceTier ?? 2,
   });
 
@@ -316,7 +325,9 @@ async function logChangeEvents(
 
   if (merged.lifecycle_stage && merged.lifecycle_stage !== existing.lifecycle_stage) {
     events.push(
-      `Stage advanced: ${existing.lifecycle_stage} → ${merged.lifecycle_stage}` +
+      (merged.lifecycle_stage === 'cancelled'
+        ? `Deal reported cancelled (was ${existing.lifecycle_stage})`
+        : `Stage advanced: ${existing.lifecycle_stage} → ${merged.lifecycle_stage}`) +
         (merged.lifecycle_reasoning ? ` — ${merged.lifecycle_reasoning}` : '')
     );
   }

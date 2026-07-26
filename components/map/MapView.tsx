@@ -201,7 +201,7 @@ export default function MapView() {
         if (!iso3) return;
         const sums = (layerCache.current.cnCountrySums ?? {}) as Record<string, { usd: number; count: number }>;
         const usFc = layerCache.current.usActivity as FC | null | undefined;
-        const usCount = usFc?.features
+        const usCount = Array.isArray(usFc?.features)
           ? usFc.features.filter((f) => f.properties?.iso3 === iso3).length
           : null;
         const dealCount = dealFc.features.filter((f) => f.properties?.iso3 === iso3).length;
@@ -281,7 +281,7 @@ export default function MapView() {
       layers.push(
         new ScatterplotLayer({
           id: 'facilities',
-          data: (cache.facilities as FC).features,
+          data: (cache.facilities as FC).features.filter((f) => f.geometry),
           pickable: true,
           getPosition: (f: GeoFeature) => (f.geometry.coordinates as [number, number]),
           getFillColor: FACILITY_COLOR,
@@ -296,7 +296,7 @@ export default function MapView() {
       layers.push(
         new ScatterplotLayer({
           id: 'cn-projects',
-          data: (cache.cnProjects as FC).features,
+          data: (cache.cnProjects as FC).features.filter((f) => f.geometry),
           pickable: true,
           getPosition: (f: GeoFeature) => (f.geometry.coordinates as [number, number]),
           getFillColor: CN_POINT_COLOR,
@@ -311,7 +311,7 @@ export default function MapView() {
       layers.push(
         new ScatterplotLayer({
           id: 'us-activity',
-          data: (cache.usActivity as FC).features,
+          data: (cache.usActivity as FC).features.filter((f) => f.geometry),
           pickable: true,
           getPosition: (f: GeoFeature) => (f.geometry.coordinates as [number, number]),
           getFillColor: (f: GeoFeature) =>
@@ -427,6 +427,8 @@ export default function MapView() {
             popup={popup}
             onClose={() => setPopup(null)}
             onFilterCountry={applyCountryFilter}
+            containerW={containerRef.current?.clientWidth ?? 0}
+            containerH={containerRef.current?.clientHeight ?? 0}
           />
         )}
 
@@ -486,13 +488,24 @@ function TogglePill({
 }
 
 function MapPopup({
-  popup, onClose, onFilterCountry,
-}: { popup: Popup; onClose: () => void; onFilterCountry: (iso3: string) => void }) {
+  popup, onClose, onFilterCountry, containerW, containerH,
+}: {
+  popup: Popup;
+  onClose: () => void;
+  onFilterCountry: (iso3: string) => void;
+  containerW: number;
+  containerH: number;
+}) {
   const p = popup.props;
-  // Keep the card inside the canvas: flip when close to the right/top edge.
+  // Keep the card inside the canvas (overflow-hidden would clip it): clamp
+  // horizontally, and open upward when the click is near the bottom edge.
+  const CARD_W = 260;
+  const EST_H = 190;
   const style: React.CSSProperties = {
-    left: Math.max(8, popup.x - 130),
-    top: popup.y + 14,
+    left: Math.min(Math.max(8, popup.x - CARD_W / 2), Math.max(8, containerW - CARD_W - 8)),
+    ...(containerH > 0 && popup.y + 14 + EST_H > containerH
+      ? { bottom: Math.max(8, containerH - popup.y + 14) }
+      : { top: popup.y + 14 }),
   };
   return (
     <div

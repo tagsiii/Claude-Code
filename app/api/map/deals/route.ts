@@ -28,8 +28,10 @@ export async function GET(req: NextRequest) {
     source_tier: sp.get('source_tier') ?? 'all',
     search: sp.get('search') ?? undefined,
   };
-  const minScore = sp.get('min_score');
-  if (minScore) filters.min_score = Number(minScore);
+  const minScoreRaw = sp.get('min_score');
+  if (minScoreRaw && Number.isFinite(Number(minScoreRaw))) {
+    filters.min_score = Number(minScoreRaw);
+  }
 
   const deals = await getDeals(filters);
   const total = deals.length;

@@ -9,9 +9,15 @@ export interface RunOptions {
   connectorNames?: string[]; // if omitted, runs all enabled
   lookbackDays?: number;
   skipLlm?: boolean;
+  // Wall-clock budget. On Vercel a hard function timeout kills the process
+  // mid-run and leaves ingest_logs rows stuck at 'running' forever — so the
+  // pipeline stops itself before that and finalizes cleanly. Deals dedup is
+  // idempotent: whatever gets deferred is picked up by the next scan.
+  budgetMs?: number;
 }
 
 export async function runIngestionPipeline(opts: RunOptions = {}): Promise<IngestResult[]> {
+  const deadline = Date.now() + (opts.budgetMs ?? 270_000); // < maxDuration 300s
   const configs = await getConnectorConfigs();
   const enabledConfigs = configs.filter((c) =>
     c.enabled && (opts.connectorNames ? opts.connectorNames.includes(c.name) : true)
@@ -20,6 +26,7 @@ export async function runIngestionPipeline(opts: RunOptions = {}): Promise<Inges
   const results: IngestResult[] = [];
 
   for (const config of enabledConfigs) {
+    if (Date.now() > deadline) break; // next scan picks this connector up
     const connector = getConnectorByName(config.name);
     if (!connector || !connector.isAvailable()) continue;
 
@@ -78,7 +85,13 @@ export async function runIngestionPipeline(opts: RunOptions = {}): Promise<Inges
       // no trace is undebuggable.
       const candidateErrors: string[] = [];
       const geoWarnings: string[] = [];
+      let deferred = 0;
+      let processed = 0;
       for (const candidate of candidates) {
+        if (Date.now() > deadline) {
+          deferred = candidates.length - processed;
+          break;
+        }
         try {
           const outcome = await ingestCandidate(candidate, {
             sourcesByUrl,
@@ -92,6 +105,7 @@ export async function runIngestionPipeline(opts: RunOptions = {}): Promise<Inges
           const msg = err instanceof Error ? err.message : String(err);
           candidateErrors.push(`${candidate.title || 'untitled'}: ${msg}`.slice(0, 200));
         }
+        processed++;
       }
 
       await markConnectorRunComplete(config.name);
@@ -100,13 +114,19 @@ export async function runIngestionPipeline(opts: RunOptions = {}): Promise<Inges
         deals_found: dealsFound,
         deals_created: dealsCreated,
         deals_updated: dealsUpdated,
-        ...(candidateErrors.length > 0 || llmErrors.length > 0 || connectorWarnings.length > 0 || geoWarnings.length > 0
+        ...(candidateErrors.length > 0 || llmErrors.length > 0 || connectorWarnings.length > 0 || geoWarnings.length > 0 || deferred > 0
           ? {
               metadata: {
                 ...(connectorWarnings.length > 0 ? { connector_warnings: connectorWarnings.slice(0, 8) } : {}),
                 ...(llmErrors.length > 0 ? { llm_errors: llmErrors.slice(0, 6) } : {}),
                 ...(candidateErrors.length > 0 ? { candidate_errors: candidateErrors.slice(0, 12) } : {}),
                 ...(geoWarnings.length > 0 ? { geo_warnings: [...new Set(geoWarnings)].slice(0, 6) } : {}),
+                ...(deferred > 0
+                  ? { connector_warnings: [
+                      ...connectorWarnings.slice(0, 7),
+                      `time budget reached — ${deferred} candidate(s) deferred to the next scan`,
+                    ] }
+                  : {}),
               },
             }
           : {}),

@@ -232,10 +232,13 @@ export function DocumentUploadPanel() {
                 {['parsed', 'analyzed', 'error', 'analyzing'].includes(d.status) && (
                   <button
                     onClick={() => analyze(d.id)}
-                    disabled={busyId === d.id || d.status === 'analyzing'}
+                    // 'analyzing' stays clickable: if the server was killed
+                    // mid-analysis (timeout), the row would otherwise be stuck
+                    // in this state forever with no way to retry.
+                    disabled={busyId === d.id}
                     className="text-xs px-3 py-1 rounded-full bg-primary hover:opacity-90 text-primary-foreground font-medium disabled:opacity-50 transition-opacity"
                   >
-                    {busyId === d.id || d.status === 'analyzing' ? '…' : d.status === 'analyzed' ? 'Re-analyze' : 'Analyze'}
+                    {busyId === d.id ? '…' : d.status === 'analyzed' ? 'Re-analyze' : d.status === 'analyzing' ? 'Retry' : 'Analyze'}
                   </button>
                 )}
                 <button

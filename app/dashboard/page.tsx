@@ -34,8 +34,10 @@ export default async function DashboardPage({
       source_tier: sp.source_tier || 'all',
       search: sp.search,
       sort_by: (sp.sort_by as never) || 'composite_score',
-      sort_dir: (sp.sort_dir as 'asc' | 'desc') || 'desc',
-      min_score: sp.min_score ? Number(sp.min_score) : undefined,
+      // No 'desc' fallback — resolveSort's per-column default must win so the
+      // "Source Quality ↑" option actually sorts tier 1 first.
+      sort_dir: (sp.sort_dir as 'asc' | 'desc') || undefined,
+      min_score: Number.isFinite(Number(sp.min_score)) && sp.min_score ? Number(sp.min_score) : undefined,
     }),
     getLatestSuccessfulIngest(),
   ]);

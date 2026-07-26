@@ -250,5 +250,34 @@ will finance the $2.1B project.</p><p>Construction starts in&nbsp;2027 &amp; bey
 }
 
 
+console.log('── Cancelled stage is terminal ──');
+{
+  const base = {
+    lifecycle_stage: 'signed', financial_sponsors: [], sponsoring_state: 'China',
+    host_country: 'Kenya', host_region: 'Africa', subsector: 'port',
+    is_confirmed: true, rom_value_usd: 1000,
+  };
+  // A cancellation report always lands, even though it's "earlier" than signed
+  const toCancel = mergeCandidateIntoDeal(base as never, {
+    title: 'x', lifecycle_stage: 'cancelled', lifecycle_reasoning: 'financing collapsed',
+    financial_sponsors: [],
+  } as never);
+  check('candidate cancellation marks the deal cancelled', toCancel.lifecycle_stage === 'cancelled');
+  check('cancellation carries reasoning', toCancel.lifecycle_reasoning === 'financing collapsed');
+
+  // A cancelled deal is never resurrected by later reporting
+  const dead = { ...base, lifecycle_stage: 'cancelled' };
+  const resurrect = mergeCandidateIntoDeal(dead as never, {
+    title: 'x', lifecycle_stage: 'under_construction', financial_sponsors: [],
+  } as never);
+  check('cancelled deal not resurrected', resurrect.lifecycle_stage === undefined);
+
+  // Normal forward-only ordering still holds
+  const fwd = mergeCandidateIntoDeal(base as never, {
+    title: 'x', lifecycle_stage: 'rumored', financial_sponsors: [],
+  } as never);
+  check('no downgrade from signed to rumored', fwd.lifecycle_stage === undefined);
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail > 0 ? 1 : 0);

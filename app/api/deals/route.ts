@@ -15,13 +15,19 @@ export async function GET(req: NextRequest) {
     sponsoring_state: sp.get('sponsoring_state') ?? 'all',
     lifecycle_stage: (sp.get('lifecycle_stage') as DashboardFilters['lifecycle_stage']) ?? 'all',
     host_region: sp.get('host_region') ?? 'all',
+    host_country: sp.get('host_country') ?? 'all',
+    source_tier: sp.get('source_tier') ?? 'all',
     search: sp.get('search') ?? undefined,
     sort_by: (sp.get('sort_by') as DashboardFilters['sort_by']) ?? 'composite_score',
-    sort_dir: (sp.get('sort_dir') as 'asc' | 'desc') ?? 'desc',
+    // No default here — resolveSort applies the per-column default (tier sorts
+    // ascending, everything else descending).
+    sort_dir: (sp.get('sort_dir') as 'asc' | 'desc') ?? undefined,
   };
 
-  const minScore = sp.get('min_score');
-  if (minScore) filters.min_score = Number(minScore);
+  const minScoreRaw = sp.get('min_score');
+  if (minScoreRaw && Number.isFinite(Number(minScoreRaw))) {
+    filters.min_score = Number(minScoreRaw);
+  }
 
   const deals = await getDeals(filters);
   return NextResponse.json({ deals });

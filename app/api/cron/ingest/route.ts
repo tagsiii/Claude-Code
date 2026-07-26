@@ -4,8 +4,10 @@ import { runIngestionPipeline } from '@/lib/pipeline/runner';
 export const maxDuration = 300;
 
 export async function GET(req: NextRequest) {
+  // With CRON_SECRET unset the interpolated string would be "Bearer undefined"
+  // — a guessable credential. No secret configured = endpoint disabled.
   const auth = req.headers.get('authorization');
-  if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!process.env.CRON_SECRET || auth !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

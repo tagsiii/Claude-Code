@@ -74,19 +74,23 @@ try {
     );
 
     const throttledCount = outcomes.filter((o) => o === 'throttled').length;
-    ok += outcomes.filter((o) => o === 'ok').length;
-    failed += outcomes.filter((o) => o === 'failed').length;
 
     if (throttledCount > 0) {
       // Rate-limited: cool down once, then retry the same batch by rewinding.
+      // Nothing from this batch is counted — the replay after cooldown counts
+      // it exactly once (re-upserts are idempotent).
       console.log(`  … rate-limited by GitHub at ${i}/${pending.length} — cooling down ${THROTTLE_COOLDOWN_MS / 1000}s`);
       await new Promise((r) => setTimeout(r, THROTTLE_COOLDOWN_MS));
       consecutiveFailures += throttledCount;
       i -= CONCURRENCY; // retry this batch after the cooldown
-    } else if (outcomes.every((o) => o === 'failed')) {
-      consecutiveFailures += outcomes.length;
     } else {
-      consecutiveFailures = 0;
+      ok += outcomes.filter((o) => o === 'ok').length;
+      failed += outcomes.filter((o) => o === 'failed').length;
+      if (outcomes.every((o) => o === 'failed')) {
+        consecutiveFailures += outcomes.length;
+      } else {
+        consecutiveFailures = 0;
+      }
     }
 
     if (consecutiveFailures >= CONSECUTIVE_FAILURE_HALT) {
