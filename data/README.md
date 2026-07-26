@@ -49,3 +49,21 @@ omission.
 
 Everything else in this directory is government/open data and is ingested
 directly.
+
+## Phase 2 — activity layers
+
+| Command | Source | Needs from you |
+|---|---|---|
+| `npm run load:aiddata` | AidData GeoGCDF v3 (GitHub) | nothing — auto-fetches (~20-40 min first run, resumable) |
+| `npm run load:eez` | Marine Regions World EEZ | `eez.zip` (shapefile zip, do not unzip) |
+| `npm run load:dfc` | dfc.gov "View DFC Project Data" | `dfc.xlsx` or `dfc.csv` |
+| `npm run load:exim` | exim.gov/open authorizations | `exim.xlsx` or `exim.csv` |
+| `npm run load:mcc` | mcc.gov open data (compacts) | `mcc.xlsx` or `mcc.csv` |
+| `npm run load:ppi` | ppi.worldbank.org bulk download | `ppi.xlsx` or `ppi.csv` |
+| `npm run sync:ustda` | USTDA press feed (API) | nothing |
+| `npm run sync:wb` | World Bank Projects API | nothing |
+| `npm run sync:oecd` | OECD CRS (SDMX API) | nothing |
+
+Run `lib/db/geo2.sql` in the Supabase SQL editor once before the first Phase-2
+load. All loaders print their real columns when a file parses to zero rows —
+paste those lines back to the developer for parser extension.

@@ -83,3 +83,17 @@ export function toIso3(raw: string | null | undefined): string | null {
 export function isValidIso3(code: string | null | undefined): boolean {
   return !!code && /^[A-Z]{3}$/.test(code);
 }
+
+// Scan free text (e.g. a press-release title) for the first known country name.
+// Longer names are matched first so "South Sudan" wins over "Sudan".
+const NAMES_BY_LENGTH = Object.keys(NAME_TO_ISO3)
+  .filter((n) => n.length > 3) // skip ambiguous short codes like 'us', 'uk'
+  .sort((a, b) => b.length - a.length);
+
+export function findCountryInText(text: string): { name: string; iso3: string } | null {
+  const hay = ` ${text.toLowerCase().replace(/[^a-z\s'-]/g, ' ').replace(/\s+/g, ' ')} `;
+  for (const name of NAMES_BY_LENGTH) {
+    if (hay.includes(` ${name} `)) return { name, iso3: NAME_TO_ISO3[name] };
+  }
+  return null;
+}

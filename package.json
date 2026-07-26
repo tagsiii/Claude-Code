@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "npx --yes tsx tests/pipeline.test.mts && npx --yes tsx tests/geo.test.mts",
+    "test": "npx --yes tsx tests/pipeline.test.mts && npx --yes tsx tests/geo.test.mts && npx --yes tsx tests/phase2.test.mts",
     "gdelt:check": "npx --yes tsx scripts/check-gdelt.mts",
     "db:setup": "node scripts/setup-db.js",
     "load:countries": "npx --yes tsx scripts/loaders/load-countries.mts",
@@ -16,7 +16,16 @@
     "load:cables": "npx --yes tsx scripts/loaders/load-cables.mts",
     "load:all": "npx --yes tsx scripts/loaders/load-all.mts",
     "probe:phase2": "npx --yes tsx scripts/probe-phase2.mts",
-    "geocode:backfill": "npx --yes tsx scripts/loaders/geocode-backfill.mts"
+    "geocode:backfill": "npx --yes tsx scripts/loaders/geocode-backfill.mts",
+    "load:aiddata": "npx --yes tsx scripts/loaders/load-aiddata.mts",
+    "load:eez": "npx --yes tsx scripts/loaders/load-eez.mts",
+    "load:dfc": "npx --yes tsx scripts/loaders/load-activity-file.mts dfc",
+    "load:exim": "npx --yes tsx scripts/loaders/load-activity-file.mts exim",
+    "load:mcc": "npx --yes tsx scripts/loaders/load-activity-file.mts mcc",
+    "load:ppi": "npx --yes tsx scripts/loaders/load-activity-file.mts ppi",
+    "sync:ustda": "npx --yes tsx scripts/loaders/sync-ustda.mts",
+    "sync:wb": "npx --yes tsx scripts/loaders/sync-wb.mts",
+    "sync:oecd": "npx --yes tsx scripts/loaders/sync-oecd.mts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.27.3",
@@ -45,14 +54,15 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "resend": "^3.3.0",
+    "shpjs": "^6.2.0",
     "tailwind-merge": "^2.4.0",
     "xlsx": "^0.18.5",
     "zod": "^3.23.8"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
-    "@types/pdf-parse": "^1.1.4",
     "@types/node": "^20.14.10",
+    "@types/pdf-parse": "^1.1.4",
     "@types/pdfkit": "^0.13.4",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
