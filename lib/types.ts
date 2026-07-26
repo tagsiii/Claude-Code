@@ -199,6 +199,8 @@ export interface DashboardFilters {
   sponsoring_state?: string | 'all';
   lifecycle_stage?: LifecycleStage | 'all';
   host_region?: string | 'all';
+  // Country filter — an ISO3 code (from a map click) or a country-name fragment.
+  host_country?: string | 'all';
   source_tier?: string | 'all'; // '1' | '2' | '3' — best confidence tier on the deal
   min_score?: number;
   search?: string;

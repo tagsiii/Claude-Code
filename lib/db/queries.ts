@@ -49,6 +49,15 @@ export async function getDeals(filters: DashboardFilters = {}): Promise<Deal[]> 
   if (filters.host_region && filters.host_region !== 'all') {
     query = query.eq('host_region', filters.host_region);
   }
+  if (filters.host_country && filters.host_country !== 'all') {
+    const c = filters.host_country.trim();
+    // Map clicks send ISO3 codes; typed input matches the country name.
+    if (/^[A-Z]{3}$/.test(c)) {
+      query = query.eq('country_iso3', c);
+    } else {
+      query = query.ilike('host_country', `%${sanitizeSearch(c)}%`);
+    }
+  }
   if (filters.source_tier && filters.source_tier !== 'all') {
     const tier = Number(filters.source_tier);
     if ([1, 2, 3].includes(tier)) {

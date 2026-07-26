@@ -54,13 +54,16 @@ try {
   for (const file of files) {
     const full = resolve(dataDir, file);
     let records: Array<Record<string, unknown>> = [];
+    const sheetSamples: Array<{ sheet: string; cols: string[] }> = [];
     if (/\.(xlsx|xls)$/i.test(file)) {
       const xlsxMod = await import('xlsx');
       const XLSX = ((xlsxMod as { default?: unknown }).default ?? xlsxMod) as typeof import('xlsx');
       const wb = XLSX.read(readFileSync(full), { type: 'buffer' });
       for (const sheetName of wb.SheetNames) {
         const raw = XLSX.utils.sheet_to_json<unknown[]>(wb.Sheets[sheetName], { header: 1 });
-        records.push(...rowsToRecords(raw as unknown[][], detectHeaderRow(raw as unknown[][])));
+        const recs = rowsToRecords(raw as unknown[][], detectHeaderRow(raw as unknown[][]));
+        if (recs.length > 0) sheetSamples.push({ sheet: sheetName, cols: Object.keys(recs[0]).slice(0, 25) });
+        records.push(...recs);
       }
     } else if (/\.csv$/i.test(file)) {
       records = csvToRecords(readFileSync(full, 'utf8'));
@@ -76,6 +79,12 @@ try {
       if (/\.xml$/i.test(file)) {
         console.log(`  ⚠ no rows matched. XML tags: ${xmlTagSummary(readFileSync(full, 'utf8'))}`);
         if (records.length > 0) console.log(`  ⚠ detected record fields: ${Object.keys(records[0]).slice(0, 40).join(' | ')}`);
+      } else if (sheetSamples.length > 0) {
+        // Multi-sheet workbooks: show every sheet's columns, not just the first
+        // (which is often a table-of-contents page).
+        for (const s of sheetSamples) {
+          console.log(`  ⚠ no rows matched. Sheet "${s.sheet}" columns: ${s.cols.join(' | ')}`);
+        }
       } else if (records.length > 0) {
         console.log(`  ⚠ no rows matched. Columns: ${Object.keys(records[0]).slice(0, 40).join(' | ')}`);
       }

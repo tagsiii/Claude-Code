@@ -30,6 +30,7 @@ export default async function DashboardPage({
       sponsoring_state: sp.sponsoring_state || 'all',
       lifecycle_stage: (sp.lifecycle_stage as never) || 'all',
       host_region: sp.host_region || 'all',
+      host_country: sp.host_country || 'all',
       source_tier: sp.source_tier || 'all',
       search: sp.search,
       sort_by: (sp.sort_by as never) || 'composite_score',

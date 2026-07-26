@@ -113,6 +113,18 @@ export function DashboardControls({ currentFilters }: Props) {
         options={SOURCE_TIERS}
       />
 
+      {/* Country filter chip — set by clicking a country on the Map page */}
+      {currentFilters.host_country && (
+        <button
+          onClick={() => updateFilter('host_country', '')}
+          className="inline-flex items-center gap-1.5 text-xs font-medium text-primary bg-primary/10 border border-primary/20 rounded-full px-3 py-1.5 hover:bg-primary/15 transition-colors"
+          title="Remove country filter"
+        >
+          Country: {currentFilters.host_country}
+          <span aria-hidden>✕</span>
+        </button>
+      )}
+
       <div className="h-5 w-px bg-border hidden sm:block" />
 
       <Select
