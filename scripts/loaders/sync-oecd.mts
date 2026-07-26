@@ -14,8 +14,37 @@ import { oecdCsvRowToFinance } from '../../lib/geo/activityParsers.ts';
 const DONORS = ['JPN', 'KOR', '4EU001', 'SAU', 'ARE', 'KWT'];
 const START_YEAR = 2018;
 
+// The DF_CRS dataflow is an *external reference* hosted on the dcd-public
+// service (probe-verified: structureURL points there), and OECD bumps its
+// version between releases (1.3 → 1.6 broke the original pinned URL). So:
+// discover the current version from the catalog, then try both hosts.
+const CATALOG_URL = 'https://sdmx.oecd.org/public/rest/dataflow/OECD.DCD.FSD';
+const DATA_BASES = [
+  'https://sdmx.oecd.org/dcd-public/rest/data',
+  'https://sdmx.oecd.org/public/rest/data',
+];
+const FALLBACK_VERSION = '1.6'; // probe-verified 2026-07
+
 const db = getDb();
 const logId = await startRunLog(db, 'sync:oecd');
+
+async function discoverCrsVersion(): Promise<string> {
+  try {
+    const controller = new AbortController();
+    const t = setTimeout(() => controller.abort(), 60_000);
+    const res = await fetch(CATALOG_URL, { signal: controller.signal });
+    clearTimeout(t);
+    if (!res.ok) return FALLBACK_VERSION;
+    const xml = await res.text();
+    const m = xml.match(/<structure:Dataflow[^>]*\bid="DSD_CRS@DF_CRS"[^>]*\bversion="([^"]+)"/)
+      ?? xml.match(/\bversion="([^"]+)"[^>]*\bid="DSD_CRS@DF_CRS"/);
+    if (m) {
+      console.log(`Catalog: DSD_CRS@DF_CRS is at version ${m[1]}`);
+      return m[1];
+    }
+  } catch { /* fall through */ }
+  return FALLBACK_VERSION;
+}
 
 async function fetchCsv(url: string): Promise<string | null> {
   try {
@@ -43,14 +72,20 @@ try {
   let parsed = 0;
   const errors: string[] = [];
 
+  const version = await discoverCrsVersion();
+  // The working host is remembered after the first donor succeeds.
+  let goodBase: string | null = null;
+
   for (const donor of DONORS) {
     // DSD_CRS@DF_CRS: DONOR.RECIPIENT.SECTOR.FLOW.CHANNEL.MODALITY.MEASURE.PRICE_BASE.PERIOD
     // Query commitments (measure 1140? use default) for all recipients, total sector.
-    const url =
-      `https://sdmx.oecd.org/public/rest/data/OECD.DCD.FSD,DSD_CRS@DF_CRS,1.3/` +
-      `${donor}..1000.100._T._T.C.Q._T?startPeriod=${START_YEAR}&dimensionAtObservation=AllDimensions&format=csvfilewithlabels`;
+    const key = `${donor}..1000.100._T._T.C.Q._T?startPeriod=${START_YEAR}&dimensionAtObservation=AllDimensions&format=csvfilewithlabels`;
     console.log(`OECD CRS: donor ${donor}…`);
-    const csv = await fetchCsv(url);
+    let csv: string | null = null;
+    for (const base of goodBase ? [goodBase] : DATA_BASES) {
+      csv = await fetchCsv(`${base}/OECD.DCD.FSD,DSD_CRS@DF_CRS,${version}/${key}`);
+      if (csv) { goodBase = base; break; }
+    }
     if (!csv) { errors.push(`${donor}: query failed (see output above)`); continue; }
 
     const rows = parseCsv(csv);
@@ -80,6 +115,27 @@ try {
       console.log(`  ⚠ 0 rows parsed. CSV columns: ${header.slice(0, 25).join(' | ')}`);
     }
     await new Promise((r) => setTimeout(r, 1500));
+  }
+
+  // Every donor failed → the query key itself is probably wrong for this
+  // version. Print the DSD's actual dimension order so the fix is one paste away.
+  if (ok === 0 && errors.length >= DONORS.length) {
+    try {
+      const res = await fetch(
+        `https://sdmx.oecd.org/dcd-public/rest/datastructure/OECD.DCD.FSD/DSD_CRS?references=none`
+      );
+      if (res.ok) {
+        const xml = await res.text();
+        const dims: Array<{ id: string; pos: number }> = [];
+        const re = /<structure:Dimension\b[^>]*\bid="([^"]+)"[^>]*\bposition="(\d+)"/g;
+        let m: RegExpExecArray | null;
+        while ((m = re.exec(xml)) !== null) dims.push({ id: m[1], pos: Number(m[2]) });
+        dims.sort((a, b) => a.pos - b.pos);
+        if (dims.length) console.log(`  ⚠ DSD_CRS dimension order: ${dims.map((d) => d.id).join('.')}`);
+      } else {
+        console.log(`  ⚠ DSD_CRS structure fetch: HTTP ${res.status}`);
+      }
+    } catch { /* diagnostic only */ }
   }
 
   console.log(`OECD CRS: ${ok} donor×country×year aggregates loaded`);

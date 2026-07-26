@@ -22,8 +22,17 @@ if (!raw) {
 }
 
 try {
-  const features: Array<{ properties?: Record<string, unknown>; geometry?: { type?: string } }> =
-    JSON.parse(raw).features ?? [];
+  type Feature = { properties?: Record<string, unknown>; geometry?: { type?: string } };
+  const features: Feature[] = JSON.parse(raw).features ?? [];
+
+  // Landing points often ship as a SEPARATE file (e.g. the map site serves
+  // cable lines and landing points as two JSON endpoints) — merge if present.
+  const landingRaw = readLocalFile('data/cable-landing-points.geojson');
+  if (landingRaw) {
+    const extra: Feature[] = JSON.parse(landingRaw).features ?? [];
+    features.push(...extra);
+    console.log(`data/cable-landing-points.geojson: +${extra.length} features`);
+  }
 
   let cables = 0;
   let landings = 0;
@@ -70,6 +79,13 @@ try {
   }
 
   console.log(`Upserted ${cables} cables, ${landings} landing points`);
+  if (cables + landings === 0 && features.length > 0) {
+    const sample = features.find((f) => f.properties) ?? features[0];
+    console.log(
+      `  ⚠ 0 rows matched. Sample feature — geometry: ${sample?.geometry?.type ?? 'none'}, ` +
+        `property keys: ${Object.keys(sample?.properties ?? {}).slice(0, 20).join(' | ') || 'none'}`
+    );
+  }
   await finishRunLog(db, logId, errors.length === 0, { found: features.length, created: cables + landings }, {
     loader: 'cables', cables, landing_points: landings, ...(errors.length ? { errors } : {}),
   });

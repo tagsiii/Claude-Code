@@ -38,12 +38,22 @@ omission.
 
 - For manual reference, use the free interactive map:
   https://www.submarinecablemap.com
-- If you have data you are licensed to use (or your own compilation), save it
-  as `data/cables.geojson`: `LineString`/`MultiLineString` features become
-  cables (properties: `name`, optional `owners`, `rfs_year`);
-  `Point` features become cable **landing stations** (property `name`,
-  optional `country_iso3`) and feed the `flag_near_cable_landing` scoring
-  signal.
+- TeleGeography publishes the free map's underlying data under a Creative
+  Commons **BY-NC-SA** license (attribution, non-commercial, share-alike).
+  If that license fits your use, you may download the files MANUALLY in a
+  browser and place them here — this project still ships no automated
+  ingester, and attribution ("Submarine cable data © TeleGeography") is
+  required wherever the data is displayed:
+  - `https://www.submarinecablemap.com/api/v3/cable/cable-geo.json`
+    → save as `data/cables.geojson` (cable lines)
+  - `https://www.submarinecablemap.com/api/v3/landing-point/landing-point-geo.json`
+    → save as `data/cable-landing-points.geojson` (landing stations, optional
+    second file — merged automatically by `load:cables`)
+- File format, if supplying your own compilation instead:
+  `LineString`/`MultiLineString` features become cables (properties: `name`,
+  optional `owners`, `rfs_year`); `Point` features become cable **landing
+  stations** (property `name`, optional `country_iso3`) and feed the
+  `flag_near_cable_landing` scoring signal.
 - Without the file, `load:cables` logs a skip and everything else works;
   the near-cable-landing flag simply never fires.
 
