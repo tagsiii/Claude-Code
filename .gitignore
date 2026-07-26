@@ -28,3 +28,4 @@ yarn-error.log*
 data/*.csv
 data/*.geojson
 data/gem/
+data/probes/

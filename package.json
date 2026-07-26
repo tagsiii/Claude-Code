@@ -14,7 +14,8 @@
     "load:wpi": "npx --yes tsx scripts/loaders/load-wpi.mts",
     "load:gem": "npx --yes tsx scripts/loaders/load-gem.mts",
     "load:cables": "npx --yes tsx scripts/loaders/load-cables.mts",
-    "load:all": "npx --yes tsx scripts/loaders/load-all.mts"
+    "load:all": "npx --yes tsx scripts/loaders/load-all.mts",
+    "probe:phase2": "npx --yes tsx scripts/probe-phase2.mts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.27.3",
