@@ -29,3 +29,6 @@ data/*.csv
 data/*.geojson
 data/gem/
 data/probes/
+
+# typescript incremental build cache
+tsconfig.tsbuildinfo

@@ -28,6 +28,17 @@ const EXPORTS: Array<{ rpc: string; args?: Record<string, unknown>; file: string
   { rpc: 'export_countries_display', file: 'countries.geojson', label: 'country polygons' },
 ];
 
+// Why a layer might legitimately export zero features — printed so an empty
+// map layer is explainable instead of mysterious.
+const EMPTY_HINTS: Record<string, string> = {
+  'facilities.geojson': 'no ports/LNG/cable landings loaded — run npm run load:wpi (and load:gem)',
+  'cn-projects.geojson': 'no Chinese finance projects loaded — run npm run load:aiddata',
+  'us-activity.geojson': 'no US activity loaded — run load:dfc / load:exim / sync:ustda / sync:mcc',
+  'cables.geojson': 'cables need the licensed TeleGeography file at data/cables.geojson (see data/README.md), then npm run load:cables',
+  'eez.geojson': 'no EEZ boundaries loaded — run npm run load:eez',
+  'countries.geojson': 'no country polygons — run npm run load:countries',
+};
+
 const db = getDb();
 const logId = await startRunLog(db, 'export:tiles');
 
@@ -70,6 +81,9 @@ try {
     }
     ok++;
     console.log(`✓ ${exp.file} — ${features} features, ${(body.length / 1024).toFixed(0)} KB (${exp.label})`);
+    if (features === 0 && EMPTY_HINTS[exp.file]) {
+      console.log(`  ⚠ empty layer: ${EMPTY_HINTS[exp.file]}`);
+    }
   }
 
   console.log(`\nExported ${ok}/${EXPORTS.length} layers to Storage bucket "${BUCKET}"`);

@@ -19,17 +19,22 @@ RETURNS JSONB AS $$
 $$ LANGUAGE sql STABLE;
 
 -- Chinese finance projects as representative points (full geometry stays in DB).
+-- ST_PointOnSurface errors on GeometryCollection (AidData multi-site projects),
+-- so collections fall back to ST_Centroid.
 CREATE OR REPLACE FUNCTION export_cn_points()
 RETURNS JSONB AS $$
   SELECT jsonb_build_object('type', 'FeatureCollection', 'features', COALESCE(jsonb_agg(
     jsonb_build_object(
       'type', 'Feature',
-      'geometry', ST_AsGeoJSON(ST_PointOnSurface(geom), 5)::jsonb,
+      'geometry', ST_AsGeoJSON(
+        CASE WHEN GeometryType(geom) IN ('POLYGON', 'MULTIPOLYGON')
+             THEN ST_PointOnSurface(geom)
+             ELSE ST_Centroid(geom) END, 5)::jsonb,
       'properties', jsonb_build_object(
         'title', LEFT(title, 160), 'sector', sector, 'usd', commitment_usd,
         'year', year, 'status', status, 'iso3', country_iso3)
     )), '[]'::jsonb))
-  FROM cn_finance_projects WHERE geom IS NOT NULL;
+  FROM cn_finance_projects WHERE geom IS NOT NULL AND NOT ST_IsEmpty(geom);
 $$ LANGUAGE sql STABLE;
 
 -- Per-country Chinese commitment aggregates (choropleth + white-space input).

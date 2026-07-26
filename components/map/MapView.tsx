@@ -42,16 +42,31 @@ interface Toggles {
   choropleth: boolean;
 }
 
+// Choropleth on by default: country-level Chinese-commitment shading is the
+// most legible strategic picture at world zoom, where individual dots are tiny.
 const DEFAULT_TOGGLES: Toggles = {
-  deals: true, cn: true, us: true, facilities: false, cables: true, eez: false, choropleth: false,
+  deals: true, cn: true, us: true, facilities: false, cables: true, eez: false, choropleth: true,
 };
 
 interface Popup {
   x: number;
   y: number;
-  kind: 'deal' | 'cn' | 'us' | 'facility' | 'cable';
+  kind: 'deal' | 'cn' | 'us' | 'facility' | 'cable' | 'country';
   props: Record<string, unknown>;
 }
+
+// Why a toggled-on layer can be legitimately empty, and what unblocks it.
+const EMPTY_LAYER_HINTS: Partial<Record<keyof typeof LAYER_FILES, string>> = {
+  cables:
+    'Cables: no data loaded. TeleGeography licensing means this file cannot be auto-downloaded — place your licensed data/cables.geojson, then run npm run load:cables and npm run export:tiles.',
+  cnProjects:
+    'Chinese projects: none loaded yet — run npm run load:aiddata, then npm run export:tiles.',
+  usActivity:
+    'US activity: none loaded yet — run load:dfc / load:exim / sync:ustda / sync:mcc, then npm run export:tiles.',
+  facilities:
+    'Ports & terminals: none loaded — run npm run load:wpi (and load:gem), then npm run export:tiles.',
+  eez: 'EEZ boundaries: none loaded — run npm run load:eez, then npm run export:tiles.',
+};
 
 export default function MapView() {
   const router = useRouter();
@@ -176,17 +191,36 @@ export default function MapView() {
   );
 
   const onDeckClick = useCallback(
-    (info: PickingInfo, kind: Popup['kind'] | 'country') => {
+    (info: PickingInfo, kind: Popup['kind']) => {
       if (!info.object) { setPopup(null); return; }
+      const props = (info.object as GeoFeature).properties ?? {};
       if (kind === 'country') {
-        const iso3 = (info.object as GeoFeature).properties?.iso3;
-        if (typeof iso3 === 'string') applyCountryFilter(iso3);
+        // Country briefing: CN money vs US presence vs our tracked deals — the
+        // side-by-side that makes the choropleth decision-useful.
+        const iso3 = String(props.iso3 ?? '');
+        if (!iso3) return;
+        const sums = (layerCache.current.cnCountrySums ?? {}) as Record<string, { usd: number; count: number }>;
+        const usFc = layerCache.current.usActivity as FC | null | undefined;
+        const usCount = usFc?.features
+          ? usFc.features.filter((f) => f.properties?.iso3 === iso3).length
+          : null;
+        const dealCount = dealFc.features.filter((f) => f.properties?.iso3 === iso3).length;
+        setPopup({
+          x: info.x, y: info.y, kind,
+          props: {
+            iso3,
+            name: props.name ?? iso3,
+            cnUsd: sums[iso3]?.usd ?? 0,
+            cnCount: sums[iso3]?.count ?? 0,
+            usCount,
+            dealCount,
+          },
+        });
         return;
       }
-      const props = (info.object as GeoFeature).properties ?? {};
       setPopup({ x: info.x, y: info.y, kind, props });
     },
-    [applyCountryFilter]
+    [dealFc]
   );
 
   // ── deck.gl layers ──────────────────────────────────────────────────────
@@ -332,16 +366,36 @@ export default function MapView() {
   const toggle = (key: keyof Toggles) =>
     setToggles((t) => ({ ...t, [key]: !t[key] }));
 
+  // Feature count of a loaded layer (null = not loaded yet).
+  const fcCount = (key: keyof typeof LAYER_FILES): number | null => {
+    const v = layerCache.current[key];
+    if (!v) return null;
+    const feats = (v as FC).features;
+    return Array.isArray(feats) ? feats.length : null;
+  };
+
+  // Layers that are toggled on, loaded, and empty — with the reason and fix.
+  const TOGGLE_FOR: Partial<Record<keyof typeof LAYER_FILES, keyof Toggles>> = {
+    cnProjects: 'cn', usActivity: 'us', facilities: 'facilities', cables: 'cables', eez: 'eez',
+  };
+  const emptyNotices = [
+    ...new Set(
+      (Object.keys(EMPTY_LAYER_HINTS) as Array<keyof typeof LAYER_FILES>)
+        .filter((key) => toggles[TOGGLE_FOR[key] as keyof Toggles] && fcCount(key) === 0)
+        .map((key) => EMPTY_LAYER_HINTS[key] as string)
+    ),
+  ];
+
   return (
     <div className="space-y-3">
       {/* Layer toggles + counts */}
       <div className="flex flex-wrap items-center gap-2 text-xs">
-        <TogglePill label="Deals" on={toggles.deals} onClick={() => toggle('deals')} swatch={[249, 115, 22, 255]} />
-        <TogglePill label="Chinese projects" on={toggles.cn} onClick={() => toggle('cn')} swatch={CN_POINT_COLOR} />
-        <TogglePill label="US activity" on={toggles.us} onClick={() => toggle('us')} swatch={US_POINT_COLOR} />
-        <TogglePill label="Cables" on={toggles.cables} onClick={() => toggle('cables')} swatch={CABLE_COLOR} />
-        <TogglePill label="Ports & terminals" on={toggles.facilities} onClick={() => toggle('facilities')} swatch={FACILITY_COLOR} />
-        <TogglePill label="EEZ" on={toggles.eez} onClick={() => toggle('eez')} swatch={EEZ_LINE_COLOR} />
+        <TogglePill label="Deals" on={toggles.deals} onClick={() => toggle('deals')} swatch={[249, 115, 22, 255]} count={counts.located} />
+        <TogglePill label="Chinese projects" on={toggles.cn} onClick={() => toggle('cn')} swatch={CN_POINT_COLOR} count={fcCount('cnProjects')} />
+        <TogglePill label="US activity" on={toggles.us} onClick={() => toggle('us')} swatch={US_POINT_COLOR} count={fcCount('usActivity')} />
+        <TogglePill label="Cables" on={toggles.cables} onClick={() => toggle('cables')} swatch={CABLE_COLOR} count={fcCount('cables')} />
+        <TogglePill label="Ports & terminals" on={toggles.facilities} onClick={() => toggle('facilities')} swatch={FACILITY_COLOR} count={fcCount('facilities')} />
+        <TogglePill label="EEZ" on={toggles.eez} onClick={() => toggle('eez')} swatch={EEZ_LINE_COLOR} count={fcCount('eez')} />
         <TogglePill label="CN $ by country" on={toggles.choropleth} onClick={() => toggle('choropleth')} swatch={[124, 58, 237, 200]} />
         <span className="ml-auto text-muted-foreground">
           {counts.located} of {counts.total} filtered deal{counts.total !== 1 ? 's' : ''} located
@@ -356,12 +410,24 @@ export default function MapView() {
         </div>
       )}
 
+      {emptyNotices.length > 0 && (
+        <div className="rounded-xl border border-border bg-card px-4 py-2.5 text-xs text-muted-foreground space-y-1">
+          {emptyNotices.map((n) => (
+            <div key={n}>{n}</div>
+          ))}
+        </div>
+      )}
+
       {/* Map canvas */}
       <div className="relative rounded-2xl overflow-hidden border border-border shadow-sm">
         <div ref={containerRef} className="h-[68vh] min-h-[440px] w-full" />
 
         {popup && (
-          <MapPopup popup={popup} onClose={() => setPopup(null)} />
+          <MapPopup
+            popup={popup}
+            onClose={() => setPopup(null)}
+            onFilterCountry={applyCountryFilter}
+          />
         )}
 
         {toggles.choropleth && (
@@ -376,13 +442,14 @@ export default function MapView() {
                 {b.label}
               </div>
             ))}
-            <div className="text-muted-foreground/70 pt-0.5">Click a country to filter deals</div>
+            <div className="text-muted-foreground/70 pt-0.5">Click a country for its briefing</div>
           </div>
         )}
       </div>
       <p className="text-[11px] text-muted-foreground">
         Hollow rings are country-level estimates (no precise site known). Dot size scales with
-        reported value. Click any point for details; click a shaded country to filter the deal list.
+        reported value. Click any point for details; click a country for its Chinese-money vs
+        US-presence briefing and to filter the deal list.
       </p>
     </div>
   );
@@ -393,8 +460,8 @@ function rgbaCss(c: RGBA): string {
 }
 
 function TogglePill({
-  label, on, onClick, swatch,
-}: { label: string; on: boolean; onClick: () => void; swatch: RGBA }) {
+  label, on, onClick, swatch, count,
+}: { label: string; on: boolean; onClick: () => void; swatch: RGBA; count?: number | null }) {
   return (
     <button
       onClick={onClick}
@@ -409,11 +476,18 @@ function TogglePill({
         style={{ backgroundColor: rgbaCss(swatch) }}
       />
       {label}
+      {on && count != null && (
+        <span className={`font-mono-numbers ${count === 0 ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground'}`}>
+          {count.toLocaleString()}
+        </span>
+      )}
     </button>
   );
 }
 
-function MapPopup({ popup, onClose }: { popup: Popup; onClose: () => void }) {
+function MapPopup({
+  popup, onClose, onFilterCountry,
+}: { popup: Popup; onClose: () => void; onFilterCountry: (iso3: string) => void }) {
   const p = popup.props;
   // Keep the card inside the canvas: flip when close to the right/top edge.
   const style: React.CSSProperties = {
@@ -481,6 +555,46 @@ function MapPopup({ popup, onClose }: { popup: Popup; onClose: () => void }) {
         <div className="space-y-1 pr-4">
           <div className="font-medium text-foreground leading-snug">{String(p.name ?? '')}</div>
           <div className="text-muted-foreground">Submarine cable{p.rfs ? ` · RFS ${p.rfs}` : ''}</div>
+        </div>
+      )}
+      {popup.kind === 'country' && (
+        <div className="space-y-2 pr-4">
+          <div className="font-medium text-foreground leading-snug">{String(p.name ?? '')}</div>
+          <div className="space-y-1">
+            <div className="flex justify-between gap-3">
+              <span className="text-muted-foreground">Chinese commitments</span>
+              <span className="font-medium text-violet-600 dark:text-violet-400">
+                {typeof p.cnUsd === 'number' && p.cnUsd > 0
+                  ? `${formatUsd(p.cnUsd)} · ${p.cnCount} projects`
+                  : 'None recorded'}
+              </span>
+            </div>
+            <div className="flex justify-between gap-3">
+              <span className="text-muted-foreground">US activity</span>
+              <span className="font-medium text-blue-600 dark:text-blue-400">
+                {p.usCount == null
+                  ? '—'
+                  : p.usCount === 0
+                    ? 'None recorded'
+                    : `${p.usCount} record${p.usCount === 1 ? '' : 's'}`}
+              </span>
+            </div>
+            <div className="flex justify-between gap-3">
+              <span className="text-muted-foreground">Tracked deals here</span>
+              <span className="font-medium text-foreground">{String(p.dealCount ?? 0)}</span>
+            </div>
+          </div>
+          {typeof p.cnUsd === 'number' && p.cnUsd > 1_000_000_000 && p.usCount === 0 && (
+            <div className="text-amber-600 dark:text-amber-400">
+              Potential white space: heavy Chinese investment, no recorded US presence.
+            </div>
+          )}
+          <button
+            onClick={() => onFilterCountry(String(p.iso3))}
+            className="inline-block text-primary hover:underline font-medium"
+          >
+            Filter deals to {String(p.name ?? p.iso3)} →
+          </button>
         </div>
       )}
     </div>
