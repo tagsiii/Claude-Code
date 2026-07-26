@@ -6,7 +6,7 @@
 import { readdirSync, existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { getDb, startRunLog, finishRunLog, inBatches } from './_shared.mts';
-import { gemRecordToFacility, gemTypeForFilename, type FacilityRow } from '../../lib/geo/parsers.ts';
+import { gemRecordToFacility, gemTypeForFilename, GEM_SKIP_FILENAME, type FacilityRow } from '../../lib/geo/parsers.ts';
 
 const db = getDb();
 const logId = await startRunLog(db, 'load:gem');
@@ -31,11 +31,18 @@ try {
   const perFile: Record<string, number> = {};
 
   for (const file of files) {
+    if (GEM_SKIP_FILENAME.test(file)) {
+      console.log(`${file}: skipped (not facility-level data — finance/supplement/ownership/vessel dataset)`);
+      perFile[file] = -1;
+      continue;
+    }
     const type = gemTypeForFilename(file);
     const wb = XLSX.read(readFileSync(resolve(dir, file)), { type: 'buffer' });
     let count = 0;
+    let sampleHeaders: string[] | null = null;
     for (const sheetName of wb.SheetNames) {
       const records = XLSX.utils.sheet_to_json<Record<string, unknown>>(wb.Sheets[sheetName]);
+      if (!sampleHeaders && records.length > 0) sampleHeaders = Object.keys(records[0]).slice(0, 25);
       for (const rec of records) {
         const row = gemRecordToFacility(rec, type);
         if (row) { rows.push(row); count++; }
@@ -43,6 +50,12 @@ try {
     }
     perFile[file] = count;
     console.log(`${file}: ${count} facilities (${type})`);
+    if (count === 0 && sampleHeaders) {
+      // Don't guess at unknown formats — surface the actual columns so the
+      // parser can be extended against real data.
+      console.log(`  ⚠ no rows matched. Sheets: ${wb.SheetNames.join(', ')}`);
+      console.log(`  ⚠ first sheet columns: ${sampleHeaders.join(' | ')}`);
+    }
   }
 
   const { ok, failed, firstErrors } = await inBatches(rows, 25, async (row) => {

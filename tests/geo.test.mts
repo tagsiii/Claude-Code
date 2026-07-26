@@ -6,7 +6,7 @@ import { toIso3, isValidIso3 } from '../lib/data/countryCodes.ts';
 import { lookupCity, CITIES } from '../lib/data/cities.ts';
 import {
   parseCsv, csvToRecords, pickField, validCoords,
-  wpiRecordToFacility, gemRecordToFacility, gemTypeForFilename, neFeatureToCountry,
+  wpiRecordToFacility, gemRecordToFacility, gemTypeForFilename, GEM_SKIP_FILENAME, neFeatureToCountry,
 } from '../lib/geo/parsers.ts';
 import { normalizeCandidate, normalizeNameList, normalizeIso3 } from '../lib/pipeline/normalize.ts';
 import { matchSponsor, normalizeSponsorName } from '../lib/pipeline/sponsors.ts';
@@ -69,6 +69,21 @@ console.log('── GEM parsing ──');
   const f = gemRecordToFacility(rec, 'power_plant');
   check('GEM row → facility', f?.name === 'Lamu Coal Power Station' && f?.iso3 === 'KEN');
   check('GEM source ref', f?.sourceRef === 'GEM:G1001');
+
+  // Single "Coordinates" column variant ("lat, lon") used by several trackers.
+  const recCoords = { 'Mine name': 'Simandou', Country: 'Guinea', Coordinates: '-8.5385, -8.8803' };
+  const fc = gemRecordToFacility(recCoords, 'mine');
+  check("GEM 'Coordinates' column parsed (lat, lon order)", fc !== null && Math.abs(fc.lat - -8.5385) < 1e-9 && Math.abs(fc.lon - -8.8803) < 1e-9);
+  check('GEM row without any coords rejected', gemRecordToFacility({ 'Mine name': 'X', Country: 'Guinea' }, 'mine') === null);
+
+  check('filename → mine (GMET)', gemTypeForFilename('GMET_V3_12-12-2025.xlsx') === 'mine');
+  check('filename → mine (iron ore)', gemTypeForFilename('Global-Iron-Ore-Mines-Tracker-August-2025-V1.xlsx') === 'mine');
+  check('filename → power_plant (integrated power)', gemTypeForFilename('Global-Integrated-Power-March-2026-II.xlsx') === 'power_plant');
+  check('filename → other (extraction, not a plant)', gemTypeForFilename('Global-Oil-and-Gas-Extraction-Tracker-March-2026.xlsx') === 'other');
+  check('skip list: finance tracker', GEM_SKIP_FILENAME.test('Gas-Finance-Tracker-Data-July-2026.xlsx'));
+  check('skip list: historical supplement', GEM_SKIP_FILENAME.test('Global-Coal-Mine-Tracker-December-2024-Supplement-Historical-Production-from-2018-to-2023.xlsx'));
+  check('skip list: LNG carriers (vessels)', GEM_SKIP_FILENAME.test('LNG-Carrier-Tracker-December-2025-release.xlsx'));
+  check('skip list does NOT catch real trackers', !GEM_SKIP_FILENAME.test('Global-Coal-Plant-Tracker-January-2026.xlsx'));
 }
 
 console.log('── Natural Earth parsing (format verified against live dataset) ──');

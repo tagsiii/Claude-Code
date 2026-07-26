@@ -107,9 +107,17 @@ export function wpiRecordToFacility(rec: Record<string, string>): FacilityRow | 
 export const GEM_TYPE_BY_FILENAME: Array<[RegExp, FacilityRow['facilityType']]> = [
   [/lng|liquef/i, 'lng_terminal'],
   [/pipeline/i, 'pipeline'],
-  [/coal.*mine|mine/i, 'mine'],
+  [/gmet|coal.*mine|iron.*ore|mine/i, 'mine'],
+  [/extraction/i, 'other'], // oil/gas fields — not plants
+  [/portal.?energetico|integrated.?power/i, 'power_plant'],
   [/coal|gas|nuclear|wind|solar|hydro|geother|bioenergy|power/i, 'power_plant'],
 ];
+
+// Datasets that are NOT facility-level location lists (financing transactions,
+// historical production tables, ownership graphs, vessel registries). Skipped
+// explicitly so a zero-count reads as intentional, not as a parse failure.
+export const GEM_SKIP_FILENAME =
+  /finance|supplement|production-consumption|ownership|carrier|historical/i;
 
 export function gemTypeForFilename(filename: string): FacilityRow['facilityType'] {
   for (const [re, type] of GEM_TYPE_BY_FILENAME) {
@@ -124,10 +132,19 @@ export function gemRecordToFacility(
 ): FacilityRow | null {
   const name = pickField(rec, [
     'Plant name', 'Project name', 'Plant / Project name', 'Terminal name', 'Pipeline name',
-    'Mine name', 'Unit name', 'Project', 'Name',
+    'Mine name', 'Unit name', 'Facility name', 'Site name', 'Project', 'Name',
   ]);
-  const lat = parseNum(pickField(rec, ['Latitude', 'Lat']));
-  const lon = parseNum(pickField(rec, ['Longitude', 'Lng', 'Lon', 'Long']));
+  let lat = parseNum(pickField(rec, ['Latitude', 'Lat']));
+  let lon = parseNum(pickField(rec, ['Longitude', 'Lng', 'Lon', 'Long']));
+  // Several GEM trackers ship a single "Coordinates" column as "lat, lon".
+  if (!validCoords(lon, lat)) {
+    const coords = pickField(rec, ['Coordinates', 'Coordinate', 'Lat/Long', 'Lat, Long', 'Location coordinates']);
+    const m = coords?.match(/(-?\d+(?:\.\d+)?)[,;\s]+(-?\d+(?:\.\d+)?)/);
+    if (m) {
+      lat = parseFloat(m[1]);
+      lon = parseFloat(m[2]);
+    }
+  }
   if (!name || !validCoords(lon, lat)) return null;
 
   const country = pickField(rec, ['Country', 'Country/Area', 'Countries']);
