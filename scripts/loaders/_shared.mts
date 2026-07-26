@@ -97,6 +97,29 @@ export async function tryDownload(url: string, timeoutMs = 60_000): Promise<stri
   }
 }
 
+// Upsert with retry: Supabase's API layer intermittently returns transient
+// errors ("Could not query the database for the schema cache", timeouts) when
+// the instance is busy — e.g. several loaders running in parallel. Back off
+// and retry instead of dropping the batch.
+export async function upsertWithRetry(
+  db: SupabaseClient,
+  table: string,
+  rows: Record<string, unknown>[],
+  onConflict: string,
+  attempts = 4
+): Promise<{ count: number; error: string | null }> {
+  let lastError = '';
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    const { error, count } = await db.from(table).upsert(rows, { onConflict, count: 'exact' });
+    if (!error) return { count: count ?? rows.length, error: null };
+    lastError = error.message;
+    const transient = /schema cache|timeout|fetch failed|ECONNRESET|too many|connection/i.test(error.message);
+    if (!transient) break;
+    await new Promise((r) => setTimeout(r, 4000 * (attempt + 1)));
+  }
+  return { count: 0, error: lastError.slice(0, 160) };
+}
+
 // Small concurrency-limited runner for RPC upsert batches.
 export async function inBatches<T>(
   items: T[],

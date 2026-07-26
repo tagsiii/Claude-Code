@@ -3,7 +3,7 @@
 // Uses the standard WordPress REST API (verified reachable via user probe).
 // Zero AI tokens: pure keyword country/sector extraction.
 
-import { getDb, startRunLog, finishRunLog, tryDownload } from './_shared.mts';
+import { getDb, startRunLog, finishRunLog, tryDownload , upsertWithRetry } from './_shared.mts';
 import { ustdaPostToActivity } from '../../lib/geo/activityParsers.ts';
 
 const BASE = 'https://www.ustda.gov/wp-json/wp/v2/posts';
@@ -39,11 +39,9 @@ try {
       }));
 
     if (rows.length > 0) {
-      const { error, count } = await db
-        .from('us_activity')
-        .upsert(rows, { onConflict: 'agency,project_name,country_iso3', count: 'exact' });
-      if (error) { if (errors.length < 5) errors.push(error.message.slice(0, 160)); }
-      else ok += count ?? rows.length;
+      const { error, count } = await upsertWithRetry(db, 'us_activity', rows, 'agency,project_name,country_iso3');
+      if (error) { if (errors.length < 5) errors.push(error); }
+      else ok += count;
     }
     await new Promise((r) => setTimeout(r, 800)); // be polite
   }

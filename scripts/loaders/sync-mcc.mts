@@ -6,7 +6,7 @@
 // If the publisher search comes back empty, the organizations found for a
 // looser query are printed so the publisher id can be corrected from real data.
 
-import { getDb, startRunLog, finishRunLog, tryDownload } from './_shared.mts';
+import { getDb, startRunLog, finishRunLog, tryDownload , upsertWithRetry } from './_shared.mts';
 import { iatiActivitiesToRows, mccIatiToActivity } from '../../lib/geo/activityParsers.ts';
 
 const REGISTRY = 'https://iatiregistry.org/api/3/action/package_search';
@@ -72,11 +72,9 @@ try {
         source_url: r.sourceUrl, source: 'mcc_iati',
       }));
     if (rows.length > 0) {
-      const { error, count } = await db
-        .from('us_activity')
-        .upsert(rows, { onConflict: 'agency,project_name,country_iso3', count: 'exact' });
-      if (error) { if (errors.length < 5) errors.push(error.message.slice(0, 160)); }
-      else ok += count ?? rows.length;
+      const { error, count } = await upsertWithRetry(db, 'us_activity', rows, 'agency,project_name,country_iso3');
+      if (error) { if (errors.length < 5) errors.push(error); }
+      else ok += count;
     }
     await new Promise((r) => setTimeout(r, 600));
   }

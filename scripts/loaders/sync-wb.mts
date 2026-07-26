@@ -2,7 +2,7 @@
 // Endpoint + shape verified via user probe: search.worldbank.org/api/v3/projects
 // returns { total, projects: { P123: {...} } }. Paged, resumable by upsert.
 
-import { getDb, startRunLog, finishRunLog, tryDownload } from './_shared.mts';
+import { getDb, startRunLog, finishRunLog, tryDownload , upsertWithRetry } from './_shared.mts';
 import { wbProjectToMdb } from '../../lib/geo/activityParsers.ts';
 
 const BASE = 'https://search.worldbank.org/api/v3/projects';
@@ -42,9 +42,9 @@ try {
       zeroSampleShown = true;
     }
     if (rows.length > 0) {
-      const { error, count } = await db.from('mdb_pipeline').upsert(rows, { onConflict: 'bank,project_ref', count: 'exact' });
-      if (error) { if (errors.length < 5) errors.push(error.message.slice(0, 160)); }
-      else ok += count ?? rows.length;
+      const { error, count } = await upsertWithRetry(db, 'mdb_pipeline', rows, 'bank,project_ref');
+      if (error) { if (errors.length < 5) errors.push(error); }
+      else ok += count;
     }
     console.log(`  … ${scanned} scanned, ${ok} upserted`);
     await new Promise((r) => setTimeout(r, 700));

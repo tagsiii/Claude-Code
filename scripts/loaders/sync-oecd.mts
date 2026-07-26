@@ -5,7 +5,7 @@
 // The exact dataflow key can shift between OECD releases; on failure the
 // response head is printed so the query can be corrected against real errors.
 
-import { getDb, startRunLog, finishRunLog } from './_shared.mts';
+import { getDb, startRunLog, finishRunLog , upsertWithRetry } from './_shared.mts';
 import { parseCsv } from '../../lib/geo/parsers.ts';
 import { oecdCsvRowToFinance } from '../../lib/geo/activityParsers.ts';
 
@@ -72,11 +72,9 @@ try {
     parsed += finRows.length;
 
     for (let i = 0; i < finRows.length; i += 500) {
-      const { error, count } = await db
-        .from('intl_finance')
-        .upsert(finRows.slice(i, i + 500), { onConflict: 'donor,country_iso3,sector,year', count: 'exact' });
-      if (error) { if (errors.length < 5) errors.push(error.message.slice(0, 160)); }
-      else ok += count ?? 0;
+      const { error, count } = await upsertWithRetry(db, 'intl_finance', finRows.slice(i, i + 500), 'donor,country_iso3,sector,year');
+      if (error) { if (errors.length < 5) errors.push(error); }
+      else ok += count;
     }
     if (finRows.length === 0 && records.length > 0) {
       console.log(`  ⚠ 0 rows parsed. CSV columns: ${header.slice(0, 25).join(' | ')}`);

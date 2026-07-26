@@ -6,7 +6,7 @@
 
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { getDb, startRunLog, finishRunLog } from './_shared.mts';
+import { getDb, startRunLog, finishRunLog , upsertWithRetry } from './_shared.mts';
 import { csvToRecords, detectHeaderRow, rowsToRecords, xmlToRecords, xmlTagSummary } from '../../lib/geo/parsers.ts';
 import {
   dfcRecordToActivity, eximRecordToActivity, mccRecordToActivity, ppiRecordToMdb,
@@ -101,9 +101,9 @@ try {
             sector: r.sector, status: r.status, value_usd: r.valueUsd, source: `file:${key}`,
           }));
     const onConflict = config.kind === 'us_activity' ? 'agency,project_name,country_iso3' : 'bank,project_ref';
-    const { error, count } = await db.from(config.kind).upsert(payload, { onConflict, count: 'exact', ignoreDuplicates: false });
-    if (error) { if (errors.length < 5) errors.push(error.message.slice(0, 160)); }
-    else ok += count ?? slice.length;
+    const { error, count } = await upsertWithRetry(db, config.kind, payload, onConflict);
+    if (error) { if (errors.length < 5) errors.push(error); }
+    else ok += count;
   }
 
   console.log(`Upserted ${ok} rows into ${config.kind}`);
