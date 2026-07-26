@@ -106,6 +106,7 @@ export function wpiRecordToFacility(rec: Record<string, string>): FacilityRow | 
 // filename, and rows are matched on well-known GEM column names.
 export const GEM_TYPE_BY_FILENAME: Array<[RegExp, FacilityRow['facilityType']]> = [
   [/lng|liquef/i, 'lng_terminal'],
+  [/terminal/i, 'port'], // coal/other terminals are port infrastructure
   [/pipeline/i, 'pipeline'],
   [/gmet|coal.*mine|iron.*ore|mine/i, 'mine'],
   [/extraction/i, 'other'], // oil/gas fields — not plants
@@ -153,6 +154,79 @@ export function gemRecordToFacility(
   return {
     name,
     facilityType: defaultType,
+    iso3: toIso3(country),
+    lon: lon!,
+    lat: lat!,
+    sourceRef: ref ? `GEM:${ref}` : null,
+    aliases: [],
+  };
+}
+
+// Some GEM workbooks (cement, iron/steel, coal terminals, chemicals) put
+// title/notes rows above the real header, which surfaces as "__EMPTY" columns.
+// Scan the first rows for one that looks like a header (a name-ish column plus
+// a geo-ish column) and rebuild records from there.
+export function detectHeaderRow(rows: unknown[][], maxScan = 12): number {
+  for (let i = 0; i < Math.min(rows.length, maxScan); i++) {
+    const cells = (rows[i] ?? []).map((c) => String(c ?? '').toLowerCase());
+    if (cells.filter((c) => c.trim() !== '').length < 3) continue;
+    const hasName = cells.some((c) => /name|project|plant|mine|terminal|pipeline/.test(c));
+    const hasGeo = cells.some((c) => /latitude|longitude|coordinates|country/.test(c));
+    if (hasName && hasGeo) return i;
+  }
+  return 0;
+}
+
+export function rowsToRecords(rows: unknown[][], headerIdx: number): Array<Record<string, unknown>> {
+  const header = (rows[headerIdx] ?? []).map((h) => String(h ?? '').trim());
+  const out: Array<Record<string, unknown>> = [];
+  for (let i = headerIdx + 1; i < rows.length; i++) {
+    const row = rows[i];
+    if (!row || row.length === 0) continue;
+    const rec: Record<string, unknown> = {};
+    let filled = 0;
+    header.forEach((h, j) => {
+      if (!h) return;
+      const v = row[j];
+      if (v !== null && v !== undefined && String(v).trim() !== '') filled++;
+      rec[h] = v;
+    });
+    if (filled > 0) out.push(rec);
+  }
+  return out;
+}
+
+// GEM pipeline trackers (GGIT/GOIT) describe routes, not points. For gazetteer
+// matching we anchor each pipeline at its start point: named references in
+// articles ("Power of Siberia 2") then resolve to a facility. Verified columns:
+// PipelineName, SegmentName, ProjectID, CountriesOrAreas, StartCountryOrArea;
+// coordinates come from Start latitude/longitude columns or a route string.
+export function gemPipelineRecordToFacility(rec: Record<string, unknown>): FacilityRow | null {
+  const name = pickField(rec, ['PipelineName', 'Pipeline name', 'Pipeline']);
+  if (!name) return null;
+
+  let lat = parseNum(pickField(rec, ['StartLatitude', 'Start Latitude', 'StartLat', 'LatitudeStart']));
+  let lon = parseNum(pickField(rec, ['StartLongitude', 'Start Longitude', 'StartLon', 'StartLng', 'LongitudeStart']));
+  if (!validCoords(lon, lat)) {
+    // Route string fallback: first "lat, lon" pair found.
+    const route = pickField(rec, ['Route', 'WKTFormat', 'RouteCoordinates', 'Coordinates']);
+    const m = route?.match(/(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)/);
+    if (m) {
+      lat = parseFloat(m[1]);
+      lon = parseFloat(m[2]);
+    }
+  }
+  if (!validCoords(lon, lat)) return null;
+
+  const country =
+    pickField(rec, ['StartCountryOrArea', 'StartCountry']) ??
+    pickField(rec, ['CountriesOrAreas', 'Countries'])?.split(/[,;]/)[0]?.trim() ??
+    null;
+  const ref = pickField(rec, ['ProjectID', 'Project ID']);
+
+  return {
+    name,
+    facilityType: 'pipeline',
     iso3: toIso3(country),
     lon: lon!,
     lat: lat!,

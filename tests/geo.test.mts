@@ -6,7 +6,8 @@ import { toIso3, isValidIso3 } from '../lib/data/countryCodes.ts';
 import { lookupCity, CITIES } from '../lib/data/cities.ts';
 import {
   parseCsv, csvToRecords, pickField, validCoords,
-  wpiRecordToFacility, gemRecordToFacility, gemTypeForFilename, GEM_SKIP_FILENAME, neFeatureToCountry,
+  wpiRecordToFacility, gemRecordToFacility, gemPipelineRecordToFacility, gemTypeForFilename,
+  detectHeaderRow, rowsToRecords, GEM_SKIP_FILENAME, neFeatureToCountry,
 } from '../lib/geo/parsers.ts';
 import { normalizeCandidate, normalizeNameList, normalizeIso3 } from '../lib/pipeline/normalize.ts';
 import { matchSponsor, normalizeSponsorName } from '../lib/pipeline/sponsors.ts';
@@ -84,6 +85,40 @@ console.log('── GEM parsing ──');
   check('skip list: historical supplement', GEM_SKIP_FILENAME.test('Global-Coal-Mine-Tracker-December-2024-Supplement-Historical-Production-from-2018-to-2023.xlsx'));
   check('skip list: LNG carriers (vessels)', GEM_SKIP_FILENAME.test('LNG-Carrier-Tracker-December-2025-release.xlsx'));
   check('skip list does NOT catch real trackers', !GEM_SKIP_FILENAME.test('Global-Coal-Plant-Tracker-January-2026.xlsx'));
+  check('filename → port (coal terminals)', gemTypeForFilename('Global-Coal-Terminals-Tracker-December-2024.xlsx') === 'port');
+  check('LNG terminals still lng_terminal (order matters)', gemTypeForFilename('GEM-GGIT-LNG-Teminals-2025-09.xlsx') === 'lng_terminal');
+
+  // Header-offset workbooks (cement/steel/terminals): title rows above header.
+  const rawRows = [
+    ['Global Cement and Concrete Tracker'],
+    [],
+    ['Plant name', 'Country', 'Latitude', 'Longitude'],
+    ['Hima Cement Plant', 'Uganda', 0.66, 30.2],
+    ['', '', '', ''],
+  ];
+  const hi = detectHeaderRow(rawRows as never);
+  check('detectHeaderRow skips title rows', hi === 2);
+  const recs2 = rowsToRecords(rawRows as never, hi);
+  check('rowsToRecords keys by real header + drops empty rows', recs2.length === 1 && recs2[0]['Plant name'] === 'Hima Cement Plant');
+  const hima = gemRecordToFacility(recs2[0], 'other');
+  check('offset-header row parses to facility', hima?.name === 'Hima Cement Plant' && hima?.iso3 === 'UGA');
+
+  // Pipelines (GGIT/GOIT verified columns): anchored at start point.
+  const pipeRec = {
+    PipelineName: 'Power of Siberia 2', SegmentName: 'Main', ProjectID: 'P900',
+    CountriesOrAreas: 'Russia, Mongolia, China', StartCountryOrArea: 'Russia',
+    StartLatitude: 51.66, StartLongitude: 94.38,
+  };
+  const pipe = gemPipelineRecordToFacility(pipeRec);
+  check('pipeline row → start-point facility', pipe?.name === 'Power of Siberia 2' && pipe?.facilityType === 'pipeline');
+  check('pipeline country from StartCountryOrArea', pipe?.iso3 === 'RUS');
+  check('pipeline source ref', pipe?.sourceRef === 'GEM:P900');
+  const pipeRoute = gemPipelineRecordToFacility({
+    PipelineName: 'X Pipeline', CountriesOrAreas: 'Kenya; Uganda', Route: '0.31, 32.58: 0.05, 33.1',
+  });
+  check('pipeline route-string fallback', pipeRoute !== null && Math.abs(pipeRoute.lat - 0.31) < 1e-9 && Math.abs(pipeRoute.lon - 32.58) < 1e-9);
+  check('pipeline country falls back to first of CountriesOrAreas', pipeRoute?.iso3 === 'KEN');
+  check('pipeline without coords rejected', gemPipelineRecordToFacility({ PipelineName: 'Y', CountriesOrAreas: 'Kenya' }) === null);
 }
 
 console.log('── Natural Earth parsing (format verified against live dataset) ──');
