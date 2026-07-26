@@ -56,8 +56,8 @@ try {
   for (const exp of EXPORTS) {
     const { data, error } = await db.rpc(exp.rpc, exp.args ?? {});
     if (error) {
-      const hint = /function .* does not exist|schema cache/i.test(error.message)
-        ? ' — did you run lib/db/geo3.sql in the Supabase SQL editor?'
+      const hint = /function .* does not exist|schema cache|statement timeout|geom_point/i.test(error.message)
+        ? ' — re-run lib/db/geo3.sql in the Supabase SQL editor (it precomputes display points so exports stay under the timeout)'
         : '';
       errors.push(`${exp.rpc}: ${error.message}${hint}`);
       console.log(`⚠ ${exp.label}: ${error.message}${hint}`);
