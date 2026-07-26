@@ -25,7 +25,8 @@
     "load:ppi": "npx --yes tsx scripts/loaders/load-activity-file.mts ppi",
     "sync:ustda": "npx --yes tsx scripts/loaders/sync-ustda.mts",
     "sync:wb": "npx --yes tsx scripts/loaders/sync-wb.mts",
-    "sync:oecd": "npx --yes tsx scripts/loaders/sync-oecd.mts"
+    "sync:oecd": "npx --yes tsx scripts/loaders/sync-oecd.mts",
+    "sync:mcc": "npx --yes tsx scripts/loaders/sync-mcc.mts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.27.3",

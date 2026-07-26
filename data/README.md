@@ -58,7 +58,7 @@ directly.
 | `npm run load:eez` | Marine Regions World EEZ | `eez.zip` (shapefile zip, do not unzip) |
 | `npm run load:dfc` | dfc.gov "View DFC Project Data" | `dfc.xlsx` or `dfc.csv` |
 | `npm run load:exim` | exim.gov/open authorizations | `exim.xlsx` or `exim.csv` |
-| `npm run load:mcc` | mcc.gov open data (compacts) | `mcc.xlsx` or `mcc.csv` |
+| `npm run sync:mcc` | MCC via IATI Registry (API) | nothing — MCC's portal is per-country pages; the IATI mirror is fetched automatically |
 | `npm run load:ppi` | ppi.worldbank.org bulk download | `ppi.xlsx` or `ppi.csv` |
 | `npm run sync:ustda` | USTDA press feed (API) | nothing |
 | `npm run sync:wb` | World Bank Projects API | nothing |

@@ -6,7 +6,7 @@
 // with zero-count diagnostics for the manually-downloaded files.
 
 import { pickField } from './parsers';
-import { toIso3, findCountryInText } from '../data/countryCodes';
+import { toIso3, iso2ToIso3, findCountryInText } from '../data/countryCodes';
 
 function num(v: unknown): number | null {
   if (typeof v === 'number' && Number.isFinite(v)) return v;
@@ -288,6 +288,72 @@ export function ppiRecordToMdb(rec: Record<string, unknown>): MdbRow | null {
     sector: pickField(rec, ['Primary Sector', 'Sector', 'Subsector']),
     status,
     valueUsd: fileValue(rec, ['total investment', 'investment', 'physical assets']),
+  };
+}
+
+// ─── IATI activity XML (MCC publishes country program data as IATI) ───────────
+// Minimal, targeted extraction: title narrative, recipient country (@code,
+// usually ISO2), summed budget values, start date, first sector code.
+export interface IatiActivityRow {
+  title: string;
+  iso3: string | null;
+  budgetUsd: number | null;
+  startDate: string | null;
+  sector: string | null;
+}
+
+export function iatiActivitiesToRows(xml: string): IatiActivityRow[] {
+  const out: IatiActivityRow[] = [];
+  for (const m of xml.matchAll(/<iati-activity[\s\S]*?<\/iati-activity>/g)) {
+    const block = m[0];
+    const title = block
+      .match(/<title>[\s\S]*?<narrative[^>]*>([\s\S]*?)<\/narrative>/)?.[1]
+      ?.replace(/\s+/g, ' ')
+      .trim();
+    if (!title) continue;
+
+    const countryCode = block.match(/<recipient-country[^>]*code="([A-Za-z]{2,3})"/)?.[1] ?? null;
+    const iso3 = countryCode
+      ? countryCode.length === 3
+        ? toIso3(countryCode)
+        : iso2ToIso3(countryCode)
+      : null;
+
+    let budget = 0;
+    for (const bm of block.matchAll(/<budget[\s\S]*?<value[^>]*>([\d.]+)<\/value>[\s\S]*?<\/budget>/g)) {
+      const v = parseFloat(bm[1]);
+      if (Number.isFinite(v)) budget += v;
+    }
+
+    const startDate =
+      block.match(/<activity-date[^>]*type="1"[^>]*iso-date="([\d-]+)"/)?.[1] ??
+      block.match(/<activity-date[^>]*iso-date="([\d-]+)"[^>]*type="1"/)?.[1] ??
+      block.match(/<activity-date[^>]*iso-date="([\d-]+)"/)?.[1] ??
+      null;
+
+    out.push({
+      title: title.slice(0, 400),
+      iso3,
+      budgetUsd: budget > 0 ? Math.round(budget) : null,
+      startDate: startDate ? startDate.slice(0, 10) : null,
+      sector: block.match(/<sector[^>]*code="([\w.]+)"/)?.[1] ?? null,
+    });
+  }
+  return out;
+}
+
+export function mccIatiToActivity(row: IatiActivityRow, sourceUrl: string | null): UsActivityRow | null {
+  if (!row.iso3 || row.iso3 === 'USA') return null; // recipient countries only
+  return {
+    agency: 'MCC',
+    recordType: 'compact',
+    projectName: row.title,
+    iso3: row.iso3,
+    sector: row.sector ?? inferSector(row.title),
+    valueUsd: row.budgetUsd,
+    announcedDate: row.startDate,
+    isLeadingIndicator: false,
+    sourceUrl,
   };
 }
 

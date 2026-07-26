@@ -6,8 +6,8 @@ const LOADERS = [
   // Phase 2 activity layers (file-based ones skip cleanly when files absent)
   'load-aiddata.mts', 'load-eez.mts',
   'load-activity-file.mts dfc', 'load-activity-file.mts exim',
-  'load-activity-file.mts mcc', 'load-activity-file.mts ppi',
-  'sync-ustda.mts', 'sync-wb.mts', 'sync-oecd.mts',
+  'load-activity-file.mts ppi',
+  'sync-ustda.mts', 'sync-wb.mts', 'sync-mcc.mts', 'sync-oecd.mts',
 ];
 const results: Array<{ loader: string; ok: boolean }> = [];
 

@@ -5,8 +5,8 @@
 
 import { aidDataProjectToRow, eezFeatureToRow, wbProjectToMdb, ustdaPostToActivity,
   dfcRecordToActivity, eximRecordToActivity, mccRecordToActivity, ppiRecordToMdb,
-  oecdCsvRowToFinance, inferSector } from '../lib/geo/activityParsers.ts';
-import { findCountryInText } from '../lib/data/countryCodes.ts';
+  oecdCsvRowToFinance, inferSector, iatiActivitiesToRows, mccIatiToActivity } from '../lib/geo/activityParsers.ts';
+import { findCountryInText, iso2ToIso3 } from '../lib/data/countryCodes.ts';
 import { xmlToRecords, xmlTagSummary } from '../lib/geo/parsers.ts';
 
 let pass = 0, fail = 0;
@@ -152,6 +152,38 @@ console.log('── Flat-XML parsing (EXIM FOIA style) ──');
   check('attribute-row XML → records', attrRecs.length === 2 && attrRecs[1]['Country'] === 'Ghana');
   check('tag summary names frequent tags', xmlTagSummary(elementXml).includes('Authorization(2)'));
   check('empty/unstructured XML → []', xmlToRecords('<a>plain text only</a>').length === 0);
+}
+
+
+console.log('── IATI activities (MCC country program data) ──');
+{
+  check('iso2ToIso3: KE → KEN', iso2ToIso3('KE') === 'KEN');
+  check('iso2ToIso3: lowercase + Kosovo', iso2ToIso3('xk') === 'KOS');
+  check('iso2ToIso3: unknown → null', iso2ToIso3('ZZ') === null);
+
+  const iati = `<iati-activities version="2.03">
+    <iati-activity><iati-identifier>US-GOV-5-BEN-1</iati-identifier>
+      <title><narrative>Benin Power Compact</narrative></title>
+      <recipient-country code="BJ" percentage="100"/>
+      <activity-date iso-date="2017-06-22" type="1"/>
+      <sector vocabulary="1" code="23110"/>
+      <budget type="1"><period-start iso-date="2017-06-22"/><value currency="USD" value-date="2017-06-22">200000000</value></budget>
+      <budget type="1"><value>175000000</value></budget>
+    </iati-activity>
+    <iati-activity><title><narrative>MCC Administration</narrative></title>
+      <recipient-country code="US"/><budget><value>5</value></budget>
+    </iati-activity>
+  </iati-activities>`;
+  const rows = iatiActivitiesToRows(iati);
+  check('two activities parsed', rows.length === 2);
+  check('title narrative extracted', rows[0].title === 'Benin Power Compact');
+  check('recipient ISO2 → ISO3', rows[0].iso3 === 'BEN');
+  check('budgets summed', rows[0].budgetUsd === 375_000_000);
+  check('start date type=1 extracted', rows[0].startDate === '2017-06-22');
+  check('sector code extracted', rows[0].sector === '23110');
+  const act = mccIatiToActivity(rows[0], 'https://x/mcc.xml');
+  check('MCC mapping → compact record', act?.agency === 'MCC' && act?.recordType === 'compact' && act?.iso3 === 'BEN');
+  check('US-recipient admin rows dropped', mccIatiToActivity(rows[1], null) === null);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);
