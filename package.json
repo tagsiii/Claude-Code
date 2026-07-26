@@ -17,6 +17,7 @@
     "load:cables": "npx --yes tsx scripts/loaders/load-cables.mts",
     "load:all": "npx --yes tsx scripts/loaders/load-all.mts",
     "probe:phase2": "npx --yes tsx scripts/probe-phase2.mts",
+    "probe:oecd": "npx --yes tsx scripts/probe-oecd.mts",
     "geocode:backfill": "npx --yes tsx scripts/loaders/geocode-backfill.mts",
     "load:aiddata": "npx --yes tsx scripts/loaders/load-aiddata.mts",
     "load:eez": "npx --yes tsx scripts/loaders/load-eez.mts",
