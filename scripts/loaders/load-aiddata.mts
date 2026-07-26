@@ -5,12 +5,18 @@
 // Commitment.Year). RESUMABLE: already-loaded project_refs are skipped, so an
 // interrupted run just continues on re-run. ~6k files ≈ 20-40 min first time.
 
-import { getDb, startRunLog, finishRunLog, tryDownload } from './_shared.mts';
+import { getDb, startRunLog, finishRunLog, tryDownload, downloadWithStatus } from './_shared.mts';
 import { aidDataProjectToRow } from '../../lib/geo/activityParsers.ts';
 
 const TREE_URL = 'https://api.github.com/repos/aiddata/gcdf-geospatial-data/git/trees/main?recursive=1';
 const RAW_BASE = 'https://raw.githubusercontent.com/aiddata/gcdf-geospatial-data/main/';
-const CONCURRENCY = 6;
+// GitHub's raw host rate-limits sustained bulk fetching. Stay gentle: low
+// concurrency + pacing, cool down on throttle responses, and halt early on a
+// sustained lockout — the loader is resumable, so a later re-run continues.
+const CONCURRENCY = 2;
+const BATCH_DELAY_MS = 400;
+const THROTTLE_COOLDOWN_MS = 90_000;
+const CONSECUTIVE_FAILURE_HALT = 25;
 
 const db = getDb();
 const logId = await startRunLog(db, 'load:aiddata');
@@ -36,18 +42,22 @@ try {
   const pending = paths.filter((p) => !existing.has(p.match(/(\d+)\.geojson$/)![1]));
   console.log(`${existing.size} already loaded, ${pending.length} to fetch`);
 
-  // 3. Fetch + upsert with modest concurrency.
+  // 3. Fetch + upsert, throttle-aware.
   let ok = 0;
   let failed = 0;
+  let consecutiveFailures = 0;
+  let halted = false;
   const errors: string[] = [];
-  for (let i = 0; i < pending.length; i += CONCURRENCY) {
+
+  for (let i = 0; i < pending.length && !halted; i += CONCURRENCY) {
     const batch = pending.slice(i, i + CONCURRENCY);
-    await Promise.all(
-      batch.map(async (path) => {
+    const outcomes = await Promise.all(
+      batch.map(async (path): Promise<'ok' | 'throttled' | 'failed'> => {
         try {
-          const raw = await tryDownload(RAW_BASE + path, 60_000);
-          if (!raw) throw new Error('download failed');
-          const row = aidDataProjectToRow(JSON.parse(raw));
+          let res = await downloadWithStatus(RAW_BASE + path, 60_000);
+          if (res && (res.status === 429 || res.status === 403)) return 'throttled';
+          if (!res || res.status !== 200) throw new Error(`HTTP ${res?.status ?? 'network error'}`);
+          const row = aidDataProjectToRow(JSON.parse(res.text));
           if (!row) throw new Error('unparseable properties');
           const { error } = await db.rpc('upsert_cn_project', {
             p_ref: row.projectRef, p_title: row.title, p_sector: row.sector,
@@ -55,21 +65,49 @@ try {
             p_iso3: row.iso3 ?? '', p_geojson: row.geometryJson,
           });
           if (error) throw new Error(error.message);
-          ok++;
+          return 'ok';
         } catch (err) {
-          failed++;
           if (errors.length < 8) errors.push(`${path}: ${err instanceof Error ? err.message : err}`.slice(0, 140));
+          return 'failed';
         }
       })
     );
-    if ((i / CONCURRENCY) % 50 === 0 && i > 0) console.log(`  … ${i}/${pending.length} (ok ${ok}, failed ${failed})`);
+
+    const throttledCount = outcomes.filter((o) => o === 'throttled').length;
+    ok += outcomes.filter((o) => o === 'ok').length;
+    failed += outcomes.filter((o) => o === 'failed').length;
+
+    if (throttledCount > 0) {
+      // Rate-limited: cool down once, then retry the same batch by rewinding.
+      console.log(`  … rate-limited by GitHub at ${i}/${pending.length} — cooling down ${THROTTLE_COOLDOWN_MS / 1000}s`);
+      await new Promise((r) => setTimeout(r, THROTTLE_COOLDOWN_MS));
+      consecutiveFailures += throttledCount;
+      i -= CONCURRENCY; // retry this batch after the cooldown
+    } else if (outcomes.every((o) => o === 'failed')) {
+      consecutiveFailures += outcomes.length;
+    } else {
+      consecutiveFailures = 0;
+    }
+
+    if (consecutiveFailures >= CONSECUTIVE_FAILURE_HALT) {
+      halted = true;
+      console.log(
+        `\nHalting: GitHub is persistently rate-limiting this IP. ` +
+          `${ok + existing.size} projects are loaded so far — re-run "npm run load:aiddata" in ~1 hour; it resumes automatically.`
+      );
+    }
+
+    if ((i / CONCURRENCY) % 100 === 0 && i > 0) console.log(`  … ${i}/${pending.length} (ok ${ok}, failed ${failed})`);
+    await new Promise((r) => setTimeout(r, BATCH_DELAY_MS));
   }
 
-  console.log(`Loaded ${ok} Chinese finance projects (${failed} failed, ${existing.size} pre-existing)`);
-  await finishRunLog(db, logId, failed === 0, { found: pending.length, created: ok }, {
-    loader: 'aiddata', pre_existing: existing.size, ...(errors.length ? { errors } : {}),
+  console.log(`Loaded ${ok} Chinese finance projects this run (${failed} failed, ${existing.size} pre-existing)`);
+  await finishRunLog(db, logId, failed === 0 && !halted, { found: pending.length, created: ok }, {
+    loader: 'aiddata', pre_existing: existing.size,
+    ...(halted ? { halted_early: 'github rate limit — resume later' } : {}),
+    ...(errors.length ? { errors } : {}),
   });
-  if (failed > 0) process.exit(1);
+  if (failed > 0 || halted) process.exit(1);
 } catch (err) {
   const msg = err instanceof Error ? err.message : String(err);
   console.error(`load:aiddata failed — ${msg}`);

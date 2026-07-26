@@ -67,6 +67,23 @@ export function readLocalFile(relPath: string): string | null {
   return existsSync(p) ? readFileSync(p, 'utf8') : null;
 }
 
+// Status-aware variant for loaders that need to distinguish throttling (429/403)
+// from missing files (404) and transient errors.
+export async function downloadWithStatus(
+  url: string,
+  timeoutMs = 60_000
+): Promise<{ status: number; text: string } | null> {
+  try {
+    const controller = new AbortController();
+    const t = setTimeout(() => controller.abort(), timeoutMs);
+    const res = await fetch(url, { signal: controller.signal });
+    clearTimeout(t);
+    return { status: res.status, text: await res.text() };
+  } catch {
+    return null;
+  }
+}
+
 export async function tryDownload(url: string, timeoutMs = 60_000): Promise<string | null> {
   try {
     const controller = new AbortController();
