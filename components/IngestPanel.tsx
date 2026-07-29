@@ -71,7 +71,7 @@ export function IngestPanel() {
       </button>
 
       {result && (
-        <div className="text-xs text-muted-foreground text-right space-y-0.5">
+        <div className="text-xs text-muted-foreground text-right space-y-0.5 max-w-xs">
           {result.results.map((r) => (
             <div key={r.connector} className={r.error ? 'text-destructive' : 'text-muted-foreground'}>
               {r.connector}: {r.error ? `⚠ ${r.error.slice(0, 40)}` : `+${r.deals_created} new, ↑${r.deals_updated} updated`}
@@ -80,6 +80,17 @@ export function IngestPanel() {
           <div className="text-muted-foreground/70">
             {result.totals.found} candidate transactions processed
           </div>
+          {/* Explain the funnel — "few new deals" usually means dedup did its job. */}
+          {result.totals.found > 0 && result.totals.created === 0 && result.totals.updated > 0 && (
+            <div className="text-muted-foreground/70">
+              All candidates matched deals already tracked — existing records were updated instead.
+            </div>
+          )}
+          {result.totals.found === 0 && !result.results.some((r) => r.error) && (
+            <div className="text-muted-foreground/70">
+              No deal-shaped news matched this window — check Activity for articles scanned.
+            </div>
+          )}
           <Link href="/dashboard/activity" className="text-primary hover:underline">
             View full results →
           </Link>

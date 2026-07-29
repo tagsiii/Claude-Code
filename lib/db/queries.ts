@@ -371,6 +371,49 @@ export async function deleteDocument(id: string): Promise<void> {
   if (error) throw error;
 }
 
+// ─── Phase 4: gap views + white-space snapshots ──────────────────────────────
+// The materialized views only exist after lib/db/geo4.sql has been run — every
+// reader returns {rows, error} so the Gaps page can show a setup notice
+// instead of crashing pre-migration.
+
+async function readView<T>(view: string): Promise<{ rows: T[]; error: string | null }> {
+  const { data, error } = await db.from(view).select('*');
+  if (error) return { rows: [], error: error.message };
+  return { rows: (data ?? []) as T[], error: null };
+}
+
+export function getWhiteSpaceRows() {
+  return readView<import('../gaps').WhiteSpaceRow>('mv_white_space');
+}
+export function getUnpositionedRows() {
+  return readView<import('../gaps').UnpositionedRow>('mv_unpositioned_pipeline');
+}
+export function getConcentrationRows() {
+  return readView<import('../gaps').ConcentrationRow>('mv_sector_concentration');
+}
+
+export async function getLatestWhiteSpaceSnapshot(): Promise<{
+  iso3s: string[];
+  // iso3 → country name at snapshot time (names countries that later drop out)
+  names: Record<string, string>;
+} | null> {
+  const { data, error } = await db
+    .from('white_space_snapshots')
+    .select('iso3s, detail')
+    .order('taken_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error || !data) return null;
+  return {
+    iso3s: (data.iso3s as string[]) ?? [],
+    names: ((data.detail as Record<string, unknown>)?.names as Record<string, string>) ?? {},
+  };
+}
+
+export async function insertWhiteSpaceSnapshot(iso3s: string[], detail: Record<string, unknown>): Promise<void> {
+  await db.from('white_space_snapshots').insert({ iso3s, detail });
+}
+
 // ─── Users ────────────────────────────────────────────────────────────────────
 
 export async function getUserByEmail(email: string) {

@@ -10,6 +10,7 @@ import { findDuplicateDeal, mergeCandidateIntoDeal } from './deduplication';
 import { normalizeCandidate } from './normalize';
 import { resolveSponsorEntities } from './sponsors';
 import { geocodeCandidate, applyDealLocation, type GeoResult } from './geocode';
+import { applySpatialFlags, anyFlagSet, flagsChanged, newlyRaisedFlags } from './spatialFlags';
 import { scoreDeal } from './scoring';
 import { generateDealSummary, extractDealFacts } from '../llm/analyze';
 import { fetchArticleText } from '../utils/articleFetch';
@@ -135,10 +136,27 @@ export async function ingestCandidate(
       try { await linkDealSponsor(existing.id, sponsorId); } catch { /* pre-migration */ }
     }
 
-    if (!hasFieldChanges && newlyLinked === 0) return geoUpgraded ? 'updated' : 'skipped';
+    // Spatial flags (Phase 4): recompute after any potential location change.
+    // The RPC persists them; a flip forces a rescore even with no field changes.
+    const flags = (await applySpatialFlags(existing.id, ctx.warnings)) ?? {};
+    const spatialChanged = flagsChanged(existing, flags);
+    for (const raised of newlyRaisedFlags(existing, flags)) {
+      try {
+        await addDealEvent({
+          deal_id: existing.id,
+          event_date: today(),
+          description: `Spatial signal raised: ${raised.reason}`,
+          source_id: null,
+        });
+      } catch { /* non-fatal */ }
+    }
+
+    if (!hasFieldChanges && newlyLinked === 0 && !spatialChanged) {
+      return geoUpgraded ? 'updated' : 'skipped';
+    }
 
     const newSourceCount = existing.source_count + newlyLinked;
-    const nextState = { ...existing, ...merged, source_count: newSourceCount };
+    const nextState = { ...existing, ...merged, ...flags, source_count: newSourceCount };
     const { composite, breakdown } = await scoreDeal(nextState);
 
     await upsertDeal({
@@ -209,6 +227,29 @@ export async function ingestCandidate(
     try { await linkDealSponsor(newDeal.id, sponsorId); } catch { /* pre-migration */ }
   }
 
+  // Spatial flags (Phase 4): computed after the location lands; a raised flag
+  // reshapes the score, so rescore with the flags included.
+  const newFlags = (await applySpatialFlags(newDeal.id, ctx.warnings)) ?? {};
+  if (anyFlagSet(newFlags)) {
+    const rescored = await scoreDeal({ ...newDeal, ...newFlags });
+    await upsertDeal({
+      id: newDeal.id,
+      composite_score: rescored.composite,
+      score_breakdown: rescored.breakdown,
+      score_calculated_at: new Date().toISOString(),
+    });
+    for (const raised of newlyRaisedFlags({}, newFlags)) {
+      try {
+        await addDealEvent({
+          deal_id: newDeal.id,
+          event_date: today(),
+          description: `Spatial signal raised: ${raised.reason}`,
+          source_id: null,
+        });
+      } catch { /* non-fatal */ }
+    }
+  }
+
   // Seed the timeline: a "first seen" marker plus any LLM-extracted key dates.
   await addDealEvent({
     deal_id: newDeal.id,
@@ -263,7 +304,8 @@ export async function ingestCandidate(
           } as DealCandidate);
           const merged = mergeCandidateIntoDeal(newDeal, factCandidate);
           if (Object.keys(merged).length > 0) {
-            const { composite, breakdown } = await scoreDeal({ ...newDeal, ...merged });
+            // Include the spatial flags so the enrichment rescore doesn't lose them.
+            const { composite, breakdown } = await scoreDeal({ ...newDeal, ...newFlags, ...merged });
             enrichedDeal = (await upsertDeal({
               id: newDeal.id,
               ...merged,

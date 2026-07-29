@@ -1,5 +1,6 @@
 import type { Deal, ScoreBreakdown, SubScore, LifecycleStage, Sector } from '../types';
 import { getScoreWeights } from '../db/queries';
+import { spatialBonus, SPATIAL_PRIORITY_POINTS, SPATIAL_ACTIONABILITY_POINTS } from './spatialFlags';
 
 // State-actor priority: 1.0 = primary strategic competitor, lower = less concern
 const ACTOR_WEIGHTS: Record<string, number> = {
@@ -111,6 +112,14 @@ function calcActionability(deal: Partial<Deal>): Omit<SubScore, 'weight' | 'cont
     parts.push(`actor concern factor ${actorWeight.toFixed(2)} for "${deal.sponsoring_state}"`);
   }
 
+  // Phase 4 spatial signals: fixed documented points where the US has a
+  // concrete opening (positioning exists, MDB train leaving, empty field).
+  const spatial = spatialBonus(deal, SPATIAL_ACTIONABILITY_POINTS);
+  if (spatial.bonus > 0) {
+    score = Math.min(100, score + spatial.bonus);
+    parts.push(`spatial signals: ${spatial.notes.join(', ')}`);
+  }
+
   return { score: Math.round(score), reasoning: parts.join('; ') };
 }
 
@@ -157,10 +166,17 @@ function calcStrategicPriority(deal: Partial<Deal>): Omit<SubScore, 'weight' | '
     ? (ACTOR_WEIGHTS[deal.sponsoring_state] ?? 0.5)
     : 0.5;
   const actorScore = Math.round(actorWeight * 100);
-  const score = Math.round((sectorScore + actorScore) / 2);
+  let score = Math.round((sectorScore + actorScore) / 2);
 
-  return {
-    score,
-    reasoning: `Sector "${deal.sector ?? 'other'}" priority ${sectorScore}/100; actor concern ${actorScore}/100`,
-  };
+  const parts = [`Sector "${deal.sector ?? 'other'}" priority ${sectorScore}/100; actor concern ${actorScore}/100`];
+
+  // Phase 4 spatial signals: fixed documented points for intrinsically
+  // strategic geography (cable landings, contested facilities, white space).
+  const spatial = spatialBonus(deal, SPATIAL_PRIORITY_POINTS);
+  if (spatial.bonus > 0) {
+    score = Math.min(100, score + spatial.bonus);
+    parts.push(`spatial signals: ${spatial.notes.join(', ')}`);
+  }
+
+  return { score, reasoning: parts.join('; ') };
 }

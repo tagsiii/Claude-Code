@@ -110,6 +110,9 @@ export default async function DealDetailPage({ params }: { params: { id: string 
         </div>
       )}
 
+      {/* Spatial signals (Phase 4) — deterministic geography-based flags */}
+      <SpatialSignals deal={deal} />
+
       {/* Score Breakdown */}
       {deal.score_breakdown && <ScoreBreakdownPanel breakdown={deal.score_breakdown} composite={deal.composite_score} />}
 
@@ -155,6 +158,39 @@ export default async function DealDetailPage({ params }: { params: { id: string 
 
       {/* Sources */}
       {deal.sources && deal.sources.length > 0 && <SourcesPanel sources={deal.sources} />}
+    </div>
+  );
+}
+
+// The five deterministic spatial flags with their stored reasons. Only raised
+// flags render — a deal with no signals shows nothing.
+function SpatialSignals({ deal }: { deal: import('@/lib/types').Deal }) {
+  const signals: Array<{ label: string; reason: string | null | undefined; tone: string }> = [
+    { label: 'Near cable landing', reason: deal.flag_near_cable_landing ? deal.flag_near_cable_landing_reason : null, tone: 'text-red-600 dark:text-red-400' },
+    { label: 'White space', reason: deal.flag_white_space ? deal.flag_white_space_reason : null, tone: 'text-violet-600 dark:text-violet-400' },
+    { label: 'Contested asset', reason: deal.flag_contested_asset ? deal.flag_contested_asset_reason : null, tone: 'text-orange-600 dark:text-orange-400' },
+    { label: 'US positioning exists', reason: deal.flag_us_positioning ? deal.flag_us_positioning_reason : null, tone: 'text-blue-600 dark:text-blue-400' },
+    { label: 'Unpositioned MDB pipeline', reason: deal.flag_unpositioned_mdb ? deal.flag_unpositioned_mdb_reason : null, tone: 'text-teal-600 dark:text-teal-400' },
+  ].filter((s) => s.reason != null);
+  if (signals.length === 0) return null;
+
+  return (
+    <div className="card p-5">
+      <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+        Spatial Signals
+      </div>
+      <div className="space-y-2.5">
+        {signals.map((s) => (
+          <div key={s.label} className="text-sm">
+            <span className={`font-semibold ${s.tone}`}>{s.label}</span>
+            <span className="text-foreground/85"> — {s.reason}</span>
+          </div>
+        ))}
+      </div>
+      <p className="text-muted-foreground text-[11px] mt-3">
+        Computed deterministically from reference geography (no AI) — each signal adds fixed,
+        documented points to Strategic Priority or US Actionability.
+      </p>
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { getConnectorByName } from '../connectors';
 import { extractDealsFromArticles } from '../llm/analyze';
 import { upsertSource } from '../db/queries';
 import { ingestCandidate, type IngestSourceRef } from './ingestCandidate';
+import { refreshGapViews } from './spatialFlags';
 import type { IngestResult, RawArticle } from '../types';
 
 export interface RunOptions {
@@ -17,7 +18,11 @@ export interface RunOptions {
 }
 
 export async function runIngestionPipeline(opts: RunOptions = {}): Promise<IngestResult[]> {
-  const deadline = Date.now() + (opts.budgetMs ?? 270_000); // < maxDuration 300s
+  // The tight default budget exists for Vercel's hard function timeout. On a
+  // local machine (npm run dev) there is no platform timeout — a manual scan
+  // should run to completion, not get truncated at 4.5 minutes.
+  const defaultBudget = process.env.VERCEL ? 270_000 : 1_800_000;
+  const deadline = Date.now() + (opts.budgetMs ?? defaultBudget);
   const configs = await getConnectorConfigs();
   const enabledConfigs = configs.filter((c) =>
     c.enabled && (opts.connectorNames ? opts.connectorNames.includes(c.name) : true)
@@ -114,9 +119,14 @@ export async function runIngestionPipeline(opts: RunOptions = {}): Promise<Inges
         deals_found: dealsFound,
         deals_created: dealsCreated,
         deals_updated: dealsUpdated,
+        metadata: {
+          // Funnel visibility: how many raw articles this scan actually saw.
+          articles_scanned: articles.length,
+        },
         ...(candidateErrors.length > 0 || llmErrors.length > 0 || connectorWarnings.length > 0 || geoWarnings.length > 0 || deferred > 0
           ? {
               metadata: {
+                articles_scanned: articles.length,
                 ...(connectorWarnings.length > 0 ? { connector_warnings: connectorWarnings.slice(0, 8) } : {}),
                 ...(llmErrors.length > 0 ? { llm_errors: llmErrors.slice(0, 6) } : {}),
                 ...(candidateErrors.length > 0 ? { candidate_errors: candidateErrors.slice(0, 12) } : {}),
@@ -139,6 +149,10 @@ export async function runIngestionPipeline(opts: RunOptions = {}): Promise<Inges
       results.push(connector.buildResult(dealsFound, dealsCreated, dealsUpdated, Date.now() - t0, message));
     }
   }
+
+  // Phase 4: gap views feed the white-space flag, the Gaps page, and the email
+  // diff — refresh after every scan so they track the latest activity data.
+  if (!opts.skipLlm && results.length > 0) await refreshGapViews();
 
   return results;
 }
