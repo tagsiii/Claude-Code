@@ -24,6 +24,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           <div className="flex items-center gap-1 sm:gap-2">
             <NavLink href="/dashboard/map">Map</NavLink>
             <NavLink href="/dashboard/gaps">Gaps</NavLink>
+            <NavLink href="/dashboard/data">Data</NavLink>
             <NavLink href="/dashboard/activity">Activity</NavLink>
             <NavLink href="/dashboard/documents">Documents</NavLink>
             <NavLink href="/dashboard/config">Config</NavLink>
