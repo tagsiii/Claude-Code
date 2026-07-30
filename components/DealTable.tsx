@@ -24,6 +24,15 @@ function gradeClass(grade: string): string {
 export function DealTable({ deals }: { deals: Deal[] }) {
   const router = useRouter();
 
+  async function review(id: string, status: 'approved' | 'rejected') {
+    await fetch(`/api/deals/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ review_status: status }),
+    });
+    router.refresh();
+  }
+
   return (
     <div className="card overflow-hidden">
       <div className="overflow-x-auto">
@@ -80,8 +89,24 @@ export function DealTable({ deals }: { deals: Deal[] }) {
                       </span>
                     )}
                     {deal.review_status === 'pending' && (
-                      <span className="text-[10px] font-semibold px-1.5 py-px rounded-full bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
-                        needs review
+                      <span className="inline-flex items-center gap-1">
+                        <span className="text-[10px] font-semibold px-1.5 py-px rounded-full bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
+                          needs review
+                        </span>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); void review(deal.id, 'approved'); }}
+                          className="text-[10px] font-semibold px-1.5 py-px rounded-full bg-green-100 text-green-700 dark:bg-green-500/15 dark:text-green-300 hover:opacity-80"
+                          title="Approve onto the main table"
+                        >
+                          ✓ approve
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); void review(deal.id, 'rejected'); }}
+                          className="text-[10px] font-semibold px-1.5 py-px rounded-full bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300 hover:opacity-80"
+                          title="Reject — hides it and blocks re-reported copies"
+                        >
+                          ✕ reject
+                        </button>
                       </span>
                     )}
                     {deal.xref_cn_ref && (

@@ -15,18 +15,22 @@ function check(name: string, cond: boolean, detail = '') {
   else { fail++; console.log(`  FAIL  ${name} ${detail}`); }
 }
 
-console.log('── Score colors mirror scoreBarClass thresholds (70/50/30) ──');
+console.log('── Score colors: same 70/50/30 bands, gold ramp (red = China) ──');
 {
-  const red = scoreFillColor(85);
-  const orange = scoreFillColor(55);
-  const amber = scoreFillColor(35);
+  const gold = scoreFillColor(85);
+  const amber = scoreFillColor(55);
+  const zinc = scoreFillColor(35);
   const gray = scoreFillColor(10);
-  check('≥70 is red family', red[0] === 239 && red[1] === 68);
-  check('50–69 is orange family', orange[0] === 249 && orange[1] === 115);
-  check('30–49 is amber family', amber[0] === 245 && amber[1] === 158);
-  check('<30 is neutral', gray[0] === gray[1] - 0 && gray[0] === 113);
-  check('boundary 70 → red, 69.9 → orange', scoreFillColor(70)[0] === 239 && scoreFillColor(69.9)[0] === 249);
+  check('≥70 is gold (yellow-400)', gold[0] === 250 && gold[1] === 204);
+  check('50–69 is amber-500', amber[0] === 245 && amber[1] === 158);
+  check('30–49 is muted zinc', zinc[0] === 161);
+  check('<30 is neutral', gray[0] === 113);
+  check('boundary 70 → gold, 69.9 → amber', scoreFillColor(70)[0] === 250 && scoreFillColor(69.9)[0] === 245);
   check('null score is neutral', scoreFillColor(null)[0] === 113);
+  check('deal colors never enter the China-red family', [85, 55, 35, 10].every((s) => {
+    const [r, g, b] = scoreFillColor(s);
+    return !(r > 200 && g < 90 && b < 90);
+  }));
 }
 
 console.log('── Deal radius: log-scaled by value, clamped ──');

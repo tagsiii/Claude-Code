@@ -5,6 +5,7 @@ import { ScoreBreakdownPanel } from '@/components/ScoreBreakdownPanel';
 import { TimelinePanel } from '@/components/TimelinePanel';
 import { SourcesPanel } from '@/components/SourcesPanel';
 import { ReviewPanel } from '@/components/ReviewPanel';
+import { EditDealPanel } from '@/components/EditDealPanel';
 import {
   formatSector, formatStage, formatRom, formatDate, formatRelativeTime, formatUsd,
   sectorColorClass, stageColorClass, scoreColorClass, scoreBgClass,
@@ -22,10 +23,13 @@ export default async function DealDetailPage({ params }: { params: { id: string 
 
   return (
     <div className="max-w-4xl mx-auto space-y-5 animate-fade-in">
-      {/* Back */}
-      <Link href="/dashboard" className="text-muted-foreground hover:text-foreground text-sm transition-colors inline-block">
-        ← Back to Dashboard
-      </Link>
+      {/* Back + edit */}
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <Link href="/dashboard" className="text-muted-foreground hover:text-foreground text-sm transition-colors inline-block">
+          ← Back to Dashboard
+        </Link>
+        <EditDealPanel deal={deal} />
+      </div>
 
       {/* Header card */}
       <div className={`border rounded-2xl overflow-hidden shadow-card ${scoreBg}`}>

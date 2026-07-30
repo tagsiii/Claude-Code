@@ -215,6 +215,8 @@ export interface EnrichmentDetails {
 export interface DashboardFilters {
   // 'pending' shows the review queue; default hides pending + rejected.
   review?: 'pending' | 'all';
+  // 'no' → only deals without map coordinates (nothing geocodable yet).
+  located?: 'no' | 'all';
   sector?: Sector | 'all';
   sponsoring_state?: string | 'all';
   lifecycle_stage?: LifecycleStage | 'all';

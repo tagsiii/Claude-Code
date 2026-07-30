@@ -60,6 +60,10 @@ export async function getDeals(filters: DashboardFilters = {}): Promise<Deal[]> 
   if (filters.host_region && filters.host_region !== 'all') {
     query = query.eq('host_region', filters.host_region);
   }
+  if (filters.located === 'no') {
+    // Deals the map can't plot: never geocoded, or only 'unknown' precision.
+    query = query.or('location_precision.is.null,location_precision.eq.unknown');
+  }
   if (filters.host_country && filters.host_country !== 'all') {
     const c = filters.host_country.trim();
     // Map clicks send ISO3 codes; typed input matches the country name.

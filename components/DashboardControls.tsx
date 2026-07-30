@@ -113,6 +113,18 @@ export function DashboardControls({ currentFilters }: Props) {
         options={SOURCE_TIERS}
       />
 
+      {/* Unlocated chip — set from the Map page's "without coordinates" link */}
+      {currentFilters.located === 'no' && (
+        <button
+          onClick={() => updateFilter('located', '')}
+          className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-500/15 border border-amber-200 dark:border-amber-900/50 rounded-full px-3 py-1.5 transition-colors"
+          title="Deals with no map coordinates — add a country or run geocode:backfill"
+        >
+          No coordinates
+          <span aria-hidden>✕</span>
+        </button>
+      )}
+
       {/* Country filter chip — set by clicking a country on the Map page */}
       {currentFilters.host_country && (
         <button

@@ -28,6 +28,7 @@ export default async function DashboardPage({
   const [deals, lastIngest, pendingCount] = await Promise.all([
     getDeals({
       review: (sp.review as 'pending' | 'all') || undefined,
+      located: (sp.located as 'no' | 'all') || undefined,
       sector: (sp.sector as never) || 'all',
       sponsoring_state: sp.sponsoring_state || 'all',
       lifecycle_stage: (sp.lifecycle_stage as never) || 'all',

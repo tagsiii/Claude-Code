@@ -1,20 +1,33 @@
 import Link from 'next/link';
+import { Suspense } from 'react';
 import { getWhiteSpaceRows, getUnpositionedRows, getConcentrationRows } from '@/lib/db/queries';
 import { toCsv } from '@/lib/gaps';
 import { formatUsd } from '@/lib/utils/format';
 import { CsvDownloadButton } from '@/components/CsvDownloadButton';
+import { GapsControls } from '@/components/GapsControls';
 
 export const dynamic = 'force-dynamic';
 
 // Gap analysis: where is China contesting the space and the US absent?
 // All three tables read pre-computed materialized views (refreshed after each
-// scan and by npm run recompute:spatial) — zero AI, fully explainable.
-export default async function GapsPage() {
-  const [ws, up, conc] = await Promise.all([
+// scan, by recompute:spatial, and by the Refresh button) — zero AI.
+export default async function GapsPage({
+  searchParams,
+}: {
+  searchParams: Record<string, string | string[] | undefined>;
+}) {
+  const minRaw = Array.isArray(searchParams.min_usd) ? searchParams.min_usd[0] : searchParams.min_usd;
+  const minUsd = minRaw && Number.isFinite(Number(minRaw)) ? Number(minRaw) : 0;
+
+  const [wsAll, upAll, concAll] = await Promise.all([
     getWhiteSpaceRows(),
     getUnpositionedRows(),
     getConcentrationRows(),
   ]);
+  // Minimum-commitment filter (URL param, shared with GapsControls).
+  const ws = { ...wsAll, rows: wsAll.rows.filter((r) => r.cn_usd >= minUsd) };
+  const up = { ...upAll, rows: upAll.rows.filter((r) => (r.value_usd ?? 0) >= minUsd || minUsd === 0) };
+  const conc = { ...concAll, rows: concAll.rows.filter((r) => r.usd >= minUsd) };
 
   const setupNeeded = [ws.error, up.error, conc.error].some(
     (e) => e && /does not exist|schema cache/i.test(e)
@@ -32,6 +45,10 @@ export default async function GapsPage() {
           Click a country to see its tracked deals.
         </p>
       </div>
+
+      <Suspense fallback={null}>
+        <GapsControls />
+      </Suspense>
 
       {setupNeeded && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300">
@@ -83,7 +100,7 @@ export default async function GapsPage() {
               {ws.rows.map((r) => (
                 <tr key={r.iso3} className="border-b border-border/60 last:border-0 hover:bg-secondary/40 transition-colors">
                   <td className="px-4 py-2.5 font-medium text-foreground">{r.country_name}</td>
-                  <td className="px-4 py-2.5 text-right font-mono-numbers text-violet-600 dark:text-violet-400">
+                  <td className="px-4 py-2.5 text-right font-mono-numbers text-red-600 dark:text-red-400">
                     {formatUsd(r.cn_usd)}
                   </td>
                   <td className="px-4 py-2.5 text-right font-mono-numbers">{r.cn_count}</td>
@@ -212,7 +229,7 @@ export default async function GapsPage() {
                 <tr key={`${r.iso3}-${r.sector}`} className="border-b border-border/60 last:border-0 hover:bg-secondary/40 transition-colors">
                   <td className="px-4 py-2.5 font-medium text-foreground">{r.country_name}</td>
                   <td className="px-4 py-2.5">{r.sector}</td>
-                  <td className="px-4 py-2.5 text-right font-mono-numbers text-violet-600 dark:text-violet-400">
+                  <td className="px-4 py-2.5 text-right font-mono-numbers text-red-600 dark:text-red-400">
                     {formatUsd(r.usd)}
                   </td>
                   <td className="px-4 py-2.5 text-right font-mono-numbers">{r.share_pct}%</td>

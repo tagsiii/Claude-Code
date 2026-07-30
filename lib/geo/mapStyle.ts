@@ -7,14 +7,15 @@ export type RGBA = [number, number, number, number];
 
 // ─── Deal points ──────────────────────────────────────────────────────────────
 
-// Tailwind red-500 / orange-500 / amber-500 / zinc-500 — same bands as
-// scoreBarClass in lib/utils/format.ts.
+// Same 70/50/30 bands as scoreBarClass, but on the MAP the hot end is GOLD,
+// not red — red now belongs to Chinese projects (user semantic). Gold → amber
+// → slate keeps urgency readable without colliding with the China layer.
 export function scoreFillColor(score: number | null | undefined): RGBA {
   if (score == null) return [113, 113, 122, 160];
-  if (score >= 70) return [239, 68, 68, 210];
-  if (score >= 50) return [249, 115, 22, 210];
-  if (score >= 30) return [245, 158, 11, 210];
-  return [113, 113, 122, 180];
+  if (score >= 70) return [250, 204, 21, 235]; // yellow-400 — highest priority
+  if (score >= 50) return [245, 158, 11, 220]; // amber-500
+  if (score >= 30) return [161, 161, 170, 200]; // zinc-400
+  return [113, 113, 122, 170];
 }
 
 // Radius in pixels, log-scaled by deal value so a $10B port doesn't just look
@@ -33,8 +34,9 @@ export function isApproximate(precision: string | null | undefined): boolean {
 
 // ─── Reference layers ─────────────────────────────────────────────────────────
 
-// CN state-backed finance: violet family (matches digital/purple accent usage).
-export const CN_POINT_COLOR: RGBA = [139, 92, 246, 190];
+// CN state-backed finance: RED — the user-chosen semantic for China.
+export const CN_POINT_COLOR: RGBA = [220, 38, 38, 210]; // red-600 core
+export const CN_HALO: RGBA = [239, 68, 68, 45]; // soft red glow under the core
 // US agency activity: blue (primary accent).
 export const US_POINT_COLOR: RGBA = [59, 130, 246, 200];
 export const US_LEADING_COLOR: RGBA = [14, 165, 233, 220]; // sky-500 — leading indicators pop
@@ -43,8 +45,9 @@ export const CABLE_COLOR: RGBA = [71, 85, 105, 170]; // slate-600 (light theme c
 export const CABLE_CORE_DARK: RGBA = [148, 184, 226, 210]; // luminous blue-grey on dark
 export const CABLE_HALO: RGBA = [100, 140, 200, 40]; // wide soft glow under the core line
 export const EEZ_LINE_COLOR: RGBA = [20, 184, 166, 90]; // teal-500, faint
-// Hover/selection accent — amber, like the reference infrastructure maps.
-export const HIGHLIGHT_COLOR: RGBA = [245, 158, 11, 220];
+// Hover/selection accent — bright white flash reads on every layer color
+// (gold deals, red CN projects, blue cables) in both themes.
+export const HIGHLIGHT_COLOR: RGBA = [255, 255, 255, 235];
 
 export function cnRadiusPx(usd: number | null | undefined): number {
   if (!usd || usd <= 0) return 2.5;
@@ -54,12 +57,13 @@ export function cnRadiusPx(usd: number | null | undefined): number {
 // ─── Choropleth (Chinese cumulative commitments per country) ─────────────────
 
 // Fixed, documented buckets (USD) — a legend must be able to state them.
+// Red ramp: deeper red = more Chinese money.
 export const CHORO_BUCKETS: Array<{ min: number; color: RGBA; label: string }> = [
-  { min: 50_000_000_000, color: [91, 33, 182, 190], label: '≥ $50B' },
-  { min: 10_000_000_000, color: [124, 58, 237, 165], label: '$10B – $50B' },
-  { min: 1_000_000_000, color: [167, 139, 250, 140], label: '$1B – $10B' },
-  { min: 100_000_000, color: [196, 181, 253, 115], label: '$100M – $1B' },
-  { min: 1, color: [221, 214, 254, 90], label: '< $100M' },
+  { min: 50_000_000_000, color: [153, 27, 27, 190], label: '≥ $50B' },
+  { min: 10_000_000_000, color: [185, 28, 28, 165], label: '$10B – $50B' },
+  { min: 1_000_000_000, color: [220, 38, 38, 140], label: '$1B – $10B' },
+  { min: 100_000_000, color: [248, 113, 113, 115], label: '$100M – $1B' },
+  { min: 1, color: [254, 202, 202, 90], label: '< $100M' },
 ];
 
 export function choroplethColor(totalUsd: number | null | undefined): RGBA {

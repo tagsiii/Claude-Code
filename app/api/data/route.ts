@@ -50,6 +50,17 @@ export async function GET(req: NextRequest) {
         else q = q.lte(key, f.value);
       }
     }
+    // Global query: contains-match across every text column at once.
+    const global = sp.get('q');
+    if (global) {
+      const safe = global.replace(/[,()"'\\%]/g, ' ').replace(/\s+/g, ' ').trim();
+      const textCols = dataset.columns
+        .filter((c) => c.type === 'text' && c.filterable !== false)
+        .map((c) => c.key);
+      if (safe && textCols.length > 0) {
+        q = q.or(textCols.map((c) => `${c}.ilike.%${safe}%`).join(','));
+      }
+    }
     return q.order(sortCol, { ascending, nullsFirst: false });
   };
 

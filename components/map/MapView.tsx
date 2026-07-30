@@ -16,7 +16,7 @@ import type { PickingInfo, Layer } from '@deck.gl/core';
 import type { FeatureCollection as GeoJsonFC } from 'geojson';
 import {
   scoreFillColor, dealRadiusPx, isApproximate, cnRadiusPx, choroplethColor,
-  CN_POINT_COLOR, US_POINT_COLOR, US_LEADING_COLOR, FACILITY_COLOR,
+  CN_POINT_COLOR, CN_HALO, US_POINT_COLOR, US_LEADING_COLOR, FACILITY_COLOR,
   CABLE_COLOR, CABLE_CORE_DARK, CABLE_HALO, EEZ_LINE_COLOR, HIGHLIGHT_COLOR,
   CHORO_BUCKETS, basemapStyle, LAYER_FILES,
   type RGBA,
@@ -323,12 +323,25 @@ export default function MapView() {
     }
 
     if (toggles.cn && cache.cnProjects) {
+      const cnData = (cache.cnProjects as FC).features.filter((f) => f.geometry);
+      // Red glow: soft halo under a sharp core — China's footprint should read
+      // like heat on the map.
+      layers.push(
+        new ScatterplotLayer({
+          id: 'cn-projects-halo',
+          data: cnData,
+          getPosition: (f: GeoFeature) => (f.geometry.coordinates as [number, number]),
+          getFillColor: CN_HALO,
+          getRadius: (f: GeoFeature) => cnRadiusPx(f.properties?.usd as number | null) * 2.4,
+          radiusUnits: 'pixels',
+        })
+      );
       layers.push(
         new ScatterplotLayer({
           id: 'cn-projects',
           autoHighlight: true,
           highlightColor: HIGHLIGHT_COLOR,
-          data: (cache.cnProjects as FC).features.filter((f) => f.geometry),
+          data: cnData,
           pickable: true,
           getPosition: (f: GeoFeature) => (f.geometry.coordinates as [number, number]),
           getFillColor: CN_POINT_COLOR,
@@ -358,17 +371,32 @@ export default function MapView() {
     }
 
     if (toggles.deals) {
+      const dealData = dealFc.features;
+      // Slick target symbol: a thin outer reticle ring + a solid core dot.
+      // Country-centroid deals stay hollow (no core) — honest about precision.
+      layers.push(
+        new ScatterplotLayer({
+          id: 'deals-ring',
+          data: dealData,
+          stroked: true,
+          filled: false,
+          getPosition: (f: GeoFeature) => (f.geometry.coordinates as [number, number]),
+          getLineColor: (f: GeoFeature): RGBA => scoreFillColor(f.properties?.score as number | null),
+          getRadius: (f: GeoFeature) => dealRadiusPx(f.properties?.value as number | null) + 3,
+          radiusUnits: 'pixels',
+          lineWidthMinPixels: 1.2,
+        })
+      );
       layers.push(
         new ScatterplotLayer({
           id: 'deals',
           autoHighlight: true,
           highlightColor: HIGHLIGHT_COLOR,
-          data: dealFc.features,
+          data: dealData,
           pickable: true,
           stroked: true,
           filled: true,
           getPosition: (f: GeoFeature) => (f.geometry.coordinates as [number, number]),
-          // Country-centroid deals render hollow — honest about precision.
           getFillColor: (f: GeoFeature): RGBA => {
             const c = scoreFillColor(f.properties?.score as number | null);
             return isApproximate(f.properties?.precision as string | null)
@@ -379,7 +407,7 @@ export default function MapView() {
             const c = scoreFillColor(f.properties?.score as number | null);
             return [c[0], c[1], c[2], 255];
           },
-          getRadius: (f: GeoFeature) => dealRadiusPx(f.properties?.value as number | null),
+          getRadius: (f: GeoFeature) => dealRadiusPx(f.properties?.value as number | null) - 1.5,
           radiusUnits: 'pixels',
           lineWidthMinPixels: 1.5,
           onClick: (info) => onDeckClick(info, 'deal'),
@@ -447,15 +475,23 @@ export default function MapView() {
     <div className="space-y-3">
       {/* Layer toggles + counts */}
       <div className="flex flex-wrap items-center gap-2 text-xs">
-        <TogglePill label="Deals" on={toggles.deals} onClick={() => toggle('deals')} swatch={[249, 115, 22, 255]} count={counts.located} />
+        <TogglePill label="Deals" on={toggles.deals} onClick={() => toggle('deals')} swatch={[250, 204, 21, 255]} count={counts.located} />
         <TogglePill label="Chinese projects" on={toggles.cn} onClick={() => toggle('cn')} swatch={CN_POINT_COLOR} count={fcCount('cnProjects')} />
         <TogglePill label="US activity" on={toggles.us} onClick={() => toggle('us')} swatch={US_POINT_COLOR} count={fcCount('usActivity')} />
         <TogglePill label="Cables" on={toggles.cables} onClick={() => toggle('cables')} swatch={CABLE_COLOR} count={fcCount('cables')} />
         <TogglePill label="Ports & terminals" on={toggles.facilities} onClick={() => toggle('facilities')} swatch={FACILITY_COLOR} count={fcCount('facilities')} />
         <TogglePill label="EEZ" on={toggles.eez} onClick={() => toggle('eez')} swatch={EEZ_LINE_COLOR} count={fcCount('eez')} />
-        <TogglePill label="CN $ by country" on={toggles.choropleth} onClick={() => toggle('choropleth')} swatch={[124, 58, 237, 200]} />
+        <TogglePill label="CN $ by country" on={toggles.choropleth} onClick={() => toggle('choropleth')} swatch={[185, 28, 28, 220]} />
         <span className="ml-auto text-muted-foreground">
           {counts.located} of {counts.total} filtered deal{counts.total !== 1 ? 's' : ''} located
+          {counts.total > counts.located && (
+            <>
+              {' · '}
+              <a href="/dashboard?located=no" className="text-primary hover:underline">
+                {counts.total - counts.located} without coordinates →
+              </a>
+            </>
+          )}
         </span>
       </div>
 
@@ -625,7 +661,7 @@ function MapPopup({
           <div className="space-y-1">
             <div className="flex justify-between gap-3">
               <span className="text-muted-foreground">Chinese commitments</span>
-              <span className="font-medium text-violet-600 dark:text-violet-400">
+              <span className="font-medium text-red-600 dark:text-red-400">
                 {typeof p.cnUsd === 'number' && p.cnUsd > 0
                   ? `${formatUsd(p.cnUsd)} · ${p.cnCount} projects`
                   : 'None recorded'}
