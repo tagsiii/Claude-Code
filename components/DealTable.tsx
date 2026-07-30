@@ -117,6 +117,25 @@ export function DealTable({ deals }: { deals: Deal[] }) {
                         ✓ official record
                       </span>
                     )}
+                    {deal.triage_status === 'act' && (
+                      <span className="text-[10px] font-semibold px-1.5 py-px rounded-full bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300" title={deal.triage_note ?? 'Triaged: act'}>
+                        ⚑ act
+                      </span>
+                    )}
+                    {deal.triage_status === 'watching' && (
+                      <span className="text-[10px] font-semibold px-1.5 py-px rounded-full bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300" title={deal.triage_note ?? 'Triaged: watching'}>
+                        ◉ watching
+                      </span>
+                    )}
+                    {deal.triaged_at && deal.triage_status !== 'none' &&
+                      new Date(deal.last_updated_at) > new Date(deal.triaged_at) && (
+                      <span
+                        className="text-[10px] font-semibold text-amber-600 dark:text-amber-400"
+                        title="This deal changed since you last triaged it"
+                      >
+                        ● changed
+                      </span>
+                    )}
                   </div>
                 </td>
 

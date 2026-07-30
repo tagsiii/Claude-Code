@@ -32,20 +32,46 @@ export function sanitizeSearch(search: string): string {
 }
 
 export async function getDeals(filters: DashboardFilters = {}): Promise<Deal[]> {
+  try {
+    return await getDealsInner(filters, true);
+  } catch (err) {
+    // Pre-migration resilience: if the vetting/triage columns from quality.sql
+    // don't exist yet, retry without those clauses instead of 500ing the app.
+    const msg = err instanceof Error ? err.message : String(err);
+    if (/review_status|triage_status|column/i.test(msg)) {
+      return getDealsInner(filters, false);
+    }
+    throw err;
+  }
+}
+
+async function getDealsInner(filters: DashboardFilters, vetting: boolean): Promise<Deal[]> {
   let query = db
     .from('deals')
     .select('*')
     .eq('status', 'active');
 
-  // Review workflow: default view shows vetted deals only (approved or
-  // pre-migration nulls); 'pending' shows the review queue; 'all' shows both.
-  // Rejected deals stay hidden everywhere — they act as a dedup blocklist.
-  if (filters.review === 'pending') {
-    query = query.eq('review_status', 'pending');
-  } else if (filters.review === 'all') {
-    query = query.or('review_status.is.null,review_status.neq.rejected');
-  } else {
-    query = query.or('review_status.is.null,review_status.eq.approved');
+  if (vetting) {
+    // Review workflow: default view shows vetted deals only (approved or
+    // pre-migration nulls); 'pending' shows the review queue; 'all' shows both.
+    // Rejected deals stay hidden everywhere — they act as a dedup blocklist.
+    if (filters.review === 'pending') {
+      query = query.eq('review_status', 'pending');
+    } else if (filters.review === 'all') {
+      query = query.or('review_status.is.null,review_status.neq.rejected');
+    } else {
+      query = query.or('review_status.is.null,review_status.eq.approved');
+    }
+
+    // Triage lanes: explicit lane filters, or the default view which only
+    // hides what the analyst dismissed.
+    if (filters.triage === 'act' || filters.triage === 'watching' || filters.triage === 'dismissed') {
+      query = query.eq('triage_status', filters.triage);
+    } else if (filters.triage === 'untriaged') {
+      query = query.or('triage_status.is.null,triage_status.eq.none');
+    } else if (filters.triage !== 'all') {
+      query = query.or('triage_status.is.null,triage_status.neq.dismissed');
+    }
   }
 
   if (filters.sector && filters.sector !== 'all') {
@@ -82,6 +108,14 @@ export async function getDeals(filters: DashboardFilters = {}): Promise<Deal[]> 
   if (filters.min_score !== undefined) {
     query = query.gte('composite_score', filters.min_score);
   }
+  if (filters.min_value !== undefined) {
+    query = query.gte('rom_value_usd', filters.min_value);
+  }
+  // Date-range filters (inclusive; *_before extends to end of day).
+  if (filters.updated_after) query = query.gte('last_updated_at', filters.updated_after);
+  if (filters.updated_before) query = query.lte('last_updated_at', `${filters.updated_before}T23:59:59`);
+  if (filters.seen_after) query = query.gte('first_seen_at', filters.seen_after);
+  if (filters.seen_before) query = query.lte('first_seen_at', `${filters.seen_before}T23:59:59`);
   if (filters.search) {
     const s = sanitizeSearch(filters.search);
     if (s) {
@@ -421,6 +455,22 @@ export async function getPendingReviewCount(): Promise<number> {
   } catch {
     return 0;
   }
+}
+
+export async function setDealTriage(
+  id: string,
+  status: 'none' | 'act' | 'watching' | 'dismissed',
+  note?: string
+): Promise<void> {
+  const { error } = await db
+    .from('deals')
+    .update({
+      triage_status: status,
+      triaged_at: new Date().toISOString(),
+      ...(note !== undefined ? { triage_note: note || null } : {}),
+    })
+    .eq('id', id);
+  if (error) throw error;
 }
 
 export async function setDealReviewStatus(

@@ -29,6 +29,7 @@ export default async function DashboardPage({
     getDeals({
       review: (sp.review as 'pending' | 'all') || undefined,
       located: (sp.located as 'no' | 'all') || undefined,
+      triage: (sp.triage as never) || undefined,
       sector: (sp.sector as never) || 'all',
       sponsoring_state: sp.sponsoring_state || 'all',
       lifecycle_stage: (sp.lifecycle_stage as never) || 'all',
@@ -41,6 +42,11 @@ export default async function DashboardPage({
       // "Source Quality ↑" option actually sorts tier 1 first.
       sort_dir: (sp.sort_dir as 'asc' | 'desc') || undefined,
       min_score: Number.isFinite(Number(sp.min_score)) && sp.min_score ? Number(sp.min_score) : undefined,
+      min_value: Number.isFinite(Number(sp.min_value)) && sp.min_value ? Number(sp.min_value) : undefined,
+      updated_after: sp.updated_after,
+      updated_before: sp.updated_before,
+      seen_after: sp.seen_after,
+      seen_before: sp.seen_before,
     }),
     getLatestSuccessfulIngest(),
     getPendingReviewCount(),

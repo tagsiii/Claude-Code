@@ -1,7 +1,19 @@
 'use client';
 
 import { useRouter, usePathname } from 'next/navigation';
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
+
+// Custom-filter registry: add a new entry here and it appears in the
+// "＋ Filter" menu with the right input type — no other code changes needed
+// (getDeals must understand the param; see DashboardFilters).
+const EXTRA_FILTERS: Array<{ param: string; label: string; type: 'date' | 'number'; hint?: string }> = [
+  { param: 'updated_after', label: 'Updated after', type: 'date' },
+  { param: 'updated_before', label: 'Updated before', type: 'date' },
+  { param: 'seen_after', label: 'First seen after', type: 'date' },
+  { param: 'seen_before', label: 'First seen before', type: 'date' },
+  { param: 'min_score', label: 'Min score', type: 'number', hint: '0–100' },
+  { param: 'min_value', label: 'Min value (USD)', type: 'number', hint: 'e.g. 500000000' },
+];
 
 const SECTORS = [
   { value: 'all', label: 'All Sectors' },
@@ -40,6 +52,14 @@ const SOURCE_TIERS = [
   { value: '3', label: 'T3 · Secondary' },
 ];
 
+const TRIAGE_LANES = [
+  { value: 'all', label: 'All Lanes' },
+  { value: 'act', label: '⚑ Act' },
+  { value: 'watching', label: '◉ Watching' },
+  { value: 'untriaged', label: 'Untriaged' },
+  { value: 'dismissed', label: 'Dismissed' },
+];
+
 const SORT_OPTIONS = [
   { value: 'composite_score', label: 'Score ↓' },
   { value: 'last_updated_at', label: 'Updated ↓' },
@@ -56,6 +76,9 @@ interface Props {
 export function DashboardControls({ currentFilters }: Props) {
   const router = useRouter();
   const pathname = usePathname();
+  // Extra filters visible either because the URL carries them or the user just
+  // added them from the ＋ Filter menu (value pending).
+  const [openExtras, setOpenExtras] = useState<string[]>([]);
 
   const updateFilter = useCallback(
     (key: string, value: string) => {
@@ -112,6 +135,57 @@ export function DashboardControls({ currentFilters }: Props) {
         onChange={(v) => updateFilter('source_tier', v)}
         options={SOURCE_TIERS}
       />
+      <Select
+        value={currentFilters.triage ?? 'all'}
+        onChange={(v) => updateFilter('triage', v)}
+        options={TRIAGE_LANES}
+      />
+
+      {/* Custom filter builder */}
+      {EXTRA_FILTERS.filter((f) => currentFilters[f.param] || openExtras.includes(f.param)).map((f) => (
+        <span
+          key={f.param}
+          className="inline-flex items-center gap-1.5 text-xs bg-card border border-border rounded-full pl-3 pr-2 py-1"
+        >
+          <span className="text-muted-foreground whitespace-nowrap">{f.label}</span>
+          <input
+            type={f.type}
+            defaultValue={currentFilters[f.param] ?? ''}
+            placeholder={f.hint}
+            autoFocus={!currentFilters[f.param]}
+            onChange={(e) => {
+              if (f.type === 'date') updateFilter(f.param, e.target.value);
+            }}
+            onBlur={(e) => updateFilter(f.param, e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') updateFilter(f.param, (e.target as HTMLInputElement).value);
+            }}
+            className="bg-secondary/60 border border-transparent focus:border-ring rounded-md px-2 py-0.5 text-xs text-foreground w-[8.5rem] focus:outline-none"
+          />
+          <button
+            onClick={() => {
+              setOpenExtras((o) => o.filter((p) => p !== f.param));
+              updateFilter(f.param, '');
+            }}
+            className="text-muted-foreground hover:text-foreground"
+            aria-label={`Remove ${f.label} filter`}
+          >
+            ✕
+          </button>
+        </span>
+      ))}
+      <select
+        value=""
+        onChange={(e) => {
+          if (e.target.value) setOpenExtras((o) => [...o, e.target.value]);
+        }}
+        className="bg-card border border-dashed border-border text-muted-foreground text-xs rounded-full px-3 py-1.5 focus:outline-none cursor-pointer hover:text-foreground transition-colors"
+      >
+        <option value="">＋ Filter</option>
+        {EXTRA_FILTERS.filter((f) => !currentFilters[f.param] && !openExtras.includes(f.param)).map((f) => (
+          <option key={f.param} value={f.param}>{f.label}</option>
+        ))}
+      </select>
 
       {/* Unlocated chip — set from the Map page's "without coordinates" link */}
       {currentFilters.located === 'no' && (

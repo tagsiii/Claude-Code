@@ -126,6 +126,9 @@ export interface Deal {
   enrichment_details?: EnrichmentDetails | null;
   review_status?: 'pending' | 'approved' | 'rejected';
   review_note?: string | null;
+  triage_status?: 'none' | 'act' | 'watching' | 'dismissed';
+  triage_note?: string | null;
+  triaged_at?: string | null;
   xref_cn_ref?: string | null;
   xref_note?: string | null;
   last_corroborated_at?: string | null;
@@ -217,6 +220,14 @@ export interface DashboardFilters {
   review?: 'pending' | 'all';
   // 'no' → only deals without map coordinates (nothing geocodable yet).
   located?: 'no' | 'all';
+  // Analyst triage lane; default hides 'dismissed'.
+  triage?: 'act' | 'watching' | 'dismissed' | 'untriaged' | 'all';
+  // Custom filter builder (dates as YYYY-MM-DD).
+  updated_after?: string;
+  updated_before?: string;
+  seen_after?: string;
+  seen_before?: string;
+  min_value?: number;
   sector?: Sector | 'all';
   sponsoring_state?: string | 'all';
   lifecycle_stage?: LifecycleStage | 'all';

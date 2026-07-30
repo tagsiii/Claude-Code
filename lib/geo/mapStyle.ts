@@ -21,9 +21,9 @@ export function scoreFillColor(score: number | null | undefined): RGBA {
 // Radius in pixels, log-scaled by deal value so a $10B port doesn't just look
 // like a $20M study. Unknown value → smallest dot.
 export function dealRadiusPx(valueUsd: number | null | undefined): number {
-  if (!valueUsd || valueUsd <= 0) return 4;
-  const r = 4 + 3 * Math.log10(valueUsd / 1_000_000 + 1);
-  return Math.min(18, Math.max(4, r));
+  if (!valueUsd || valueUsd <= 0) return 3.5;
+  const r = 3.5 + 2.2 * Math.log10(valueUsd / 1_000_000 + 1);
+  return Math.min(13, Math.max(3.5, r));
 }
 
 // Country-centroid locations are approximate — render hollow (transparent fill,
@@ -49,9 +49,11 @@ export const EEZ_LINE_COLOR: RGBA = [20, 184, 166, 90]; // teal-500, faint
 // (gold deals, red CN projects, blue cables) in both themes.
 export const HIGHLIGHT_COLOR: RGBA = [255, 255, 255, 235];
 
+// Deliberately small: thousands of CN points must read as precise pinpricks,
+// not blobs — the halo carries the "heat", the core carries the location.
 export function cnRadiusPx(usd: number | null | undefined): number {
-  if (!usd || usd <= 0) return 2.5;
-  return Math.min(12, Math.max(2.5, 2.5 + 2 * Math.log10(usd / 1_000_000 + 1)));
+  if (!usd || usd <= 0) return 1.5;
+  return Math.min(6, Math.max(1.5, 1.5 + 1.1 * Math.log10(usd / 1_000_000 + 1)));
 }
 
 // ─── Choropleth (Chinese cumulative commitments per country) ─────────────────

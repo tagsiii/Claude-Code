@@ -17,7 +17,12 @@ export async function GET(req: NextRequest) {
     host_region: sp.get('host_region') ?? 'all',
     host_country: sp.get('host_country') ?? 'all',
     source_tier: sp.get('source_tier') ?? 'all',
+    triage: (sp.get('triage') as DashboardFilters['triage']) ?? undefined,
     search: sp.get('search') ?? undefined,
+    updated_after: sp.get('updated_after') ?? undefined,
+    updated_before: sp.get('updated_before') ?? undefined,
+    seen_after: sp.get('seen_after') ?? undefined,
+    seen_before: sp.get('seen_before') ?? undefined,
     sort_by: (sp.get('sort_by') as DashboardFilters['sort_by']) ?? 'composite_score',
     // No default here — resolveSort applies the per-column default (tier sorts
     // ascending, everything else descending).

@@ -35,13 +35,13 @@ console.log('── Score colors: same 70/50/30 bands, gold ramp (red = China) �
 
 console.log('── Deal radius: log-scaled by value, clamped ──');
 {
-  check('unknown value → min 4px', dealRadiusPx(null) === 4 && dealRadiusPx(0) === 4);
+  check('unknown value → min 3.5px', dealRadiusPx(null) === 3.5 && dealRadiusPx(0) === 3.5);
   const m20 = dealRadiusPx(20_000_000);
   const b1 = dealRadiusPx(1_000_000_000);
   const b10 = dealRadiusPx(10_000_000_000);
   check('$20M smaller than $1B smaller than $10B', m20 < b1 && b1 < b10);
   check('monotonic step is log, not linear', b10 - b1 < b1 - m20 + 4); // log flattens
-  check('clamped at 18px even for $1T', dealRadiusPx(1_000_000_000_000) === 18);
+  check('clamped at 13px even for $1T', dealRadiusPx(1_000_000_000_000) === 13);
 }
 
 console.log('── Precision honesty: hollow rendering ──');
@@ -65,8 +65,8 @@ console.log('── Choropleth buckets ──');
 
 console.log('── CN point radius ──');
 {
-  check('unknown CN value → min', cnRadiusPx(null) === 2.5);
-  check('CN radius clamped at 12', cnRadiusPx(1_000_000_000_000) === 12);
+  check('unknown CN value → min (pinprick)', cnRadiusPx(null) === 1.5);
+  check('CN radius clamped at 6 — precision over blobs', cnRadiusPx(1_000_000_000_000) === 6);
   check('CN radius grows with value', cnRadiusPx(2_000_000_000) > cnRadiusPx(50_000_000));
 }
 

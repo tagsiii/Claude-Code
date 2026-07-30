@@ -6,6 +6,7 @@ import { TimelinePanel } from '@/components/TimelinePanel';
 import { SourcesPanel } from '@/components/SourcesPanel';
 import { ReviewPanel } from '@/components/ReviewPanel';
 import { EditDealPanel } from '@/components/EditDealPanel';
+import { TriagePanel } from '@/components/TriagePanel';
 import {
   formatSector, formatStage, formatRom, formatDate, formatRelativeTime, formatUsd,
   sectorColorClass, stageColorClass, scoreColorClass, scoreBgClass,
@@ -76,6 +77,27 @@ export default async function DealDetailPage({ params }: { params: { id: string 
 
       {/* Review gate */}
       {deal.review_status === 'pending' && <ReviewPanel dealId={deal.id} note={deal.review_note} />}
+
+      {/* Triage lane */}
+      <TriagePanel deal={deal} />
+
+      {/* Briefing memo export */}
+      <div className="flex items-center gap-2 text-xs">
+        <span className="text-muted-foreground">Briefing memo:</span>
+        <a
+          href={`/api/deals/${deal.id}/memo?format=docx`}
+          className="border border-border rounded-full px-3 py-1.5 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+        >
+          ↓ Word
+        </a>
+        <a
+          href={`/api/deals/${deal.id}/memo?format=pdf`}
+          className="border border-border rounded-full px-3 py-1.5 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+        >
+          ↓ PDF
+        </a>
+        <span className="text-muted-foreground/70">one-page brief: facts, score rationale, signals, sources</span>
+      </div>
 
       {/* Key facts — every load-bearing fact with its provenance */}
       <KeyFactsPanel deal={deal} />

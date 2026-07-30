@@ -332,7 +332,7 @@ export default function MapView() {
           data: cnData,
           getPosition: (f: GeoFeature) => (f.geometry.coordinates as [number, number]),
           getFillColor: CN_HALO,
-          getRadius: (f: GeoFeature) => cnRadiusPx(f.properties?.usd as number | null) * 2.4,
+          getRadius: (f: GeoFeature) => cnRadiusPx(f.properties?.usd as number | null) * 1.8,
           radiusUnits: 'pixels',
         })
       );

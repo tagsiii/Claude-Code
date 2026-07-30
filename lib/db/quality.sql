@@ -23,6 +23,16 @@ ALTER TABLE deals ADD COLUMN IF NOT EXISTS last_corroborated_at TIMESTAMPTZ;
 CREATE INDEX IF NOT EXISTS idx_deals_review_status ON deals(review_status);
 CREATE INDEX IF NOT EXISTS idx_deals_quality_grade ON deals(data_quality_grade);
 
+-- ─── Analyst triage workflow ──────────────────────────────────────────────────
+-- act = needs action · watching = monitor · dismissed = hidden from default
+-- views. triaged_at lets the UI flag deals that CHANGED since you last judged
+-- them (last_updated_at > triaged_at).
+ALTER TABLE deals ADD COLUMN IF NOT EXISTS triage_status TEXT NOT NULL DEFAULT 'none'
+  CHECK (triage_status IN ('none','act','watching','dismissed'));
+ALTER TABLE deals ADD COLUMN IF NOT EXISTS triage_note TEXT;
+ALTER TABLE deals ADD COLUMN IF NOT EXISTS triaged_at TIMESTAMPTZ;
+CREATE INDEX IF NOT EXISTS idx_deals_triage ON deals(triage_status);
+
 -- Existing rows predate the review workflow — they stay approved (default).
 
 -- ─── Domain rules: outlets the analyst has blocked ───────────────────────────

@@ -26,8 +26,17 @@ export async function GET(req: NextRequest) {
     host_region: sp.get('host_region') ?? 'all',
     host_country: sp.get('host_country') ?? 'all',
     source_tier: sp.get('source_tier') ?? 'all',
+    triage: (sp.get('triage') as DashboardFilters['triage']) ?? undefined,
     search: sp.get('search') ?? undefined,
+    updated_after: sp.get('updated_after') ?? undefined,
+    updated_before: sp.get('updated_before') ?? undefined,
+    seen_after: sp.get('seen_after') ?? undefined,
+    seen_before: sp.get('seen_before') ?? undefined,
   };
+  const minValueRaw = sp.get('min_value');
+  if (minValueRaw && Number.isFinite(Number(minValueRaw))) {
+    filters.min_value = Number(minValueRaw);
+  }
   const minScoreRaw = sp.get('min_score');
   if (minScoreRaw && Number.isFinite(Number(minScoreRaw))) {
     filters.min_score = Number(minScoreRaw);

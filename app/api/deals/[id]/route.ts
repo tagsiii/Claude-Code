@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { getDealById, setDealReviewStatus, upsertDeal, addDealEvent } from '@/lib/db/queries';
+import { getDealById, setDealReviewStatus, setDealTriage, upsertDeal, addDealEvent } from '@/lib/db/queries';
 import { scoreDeal } from '@/lib/pipeline/scoring';
 import { stampProvenance } from '@/lib/pipeline/quality';
 import type { Deal } from '@/lib/types';
@@ -39,6 +39,28 @@ export async function PATCH(
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       return NextResponse.json({ error: message }, { status: 500 });
+    }
+  }
+
+  if (body.triage_status !== undefined) {
+    const status = body.triage_status;
+    if (!['none', 'act', 'watching', 'dismissed'].includes(status)) {
+      return NextResponse.json({ error: 'triage_status must be none|act|watching|dismissed' }, { status: 400 });
+    }
+    try {
+      await setDealTriage(
+        params.id,
+        status,
+        typeof body.note === 'string' ? body.note.slice(0, 300) : undefined
+      );
+      return NextResponse.json({ ok: true, triage_status: status });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      const setup = /column|schema cache/i.test(message);
+      return NextResponse.json(
+        { error: setup ? 'Run lib/db/quality.sql in the Supabase SQL editor first.' : message },
+        { status: setup ? 409 : 500 }
+      );
     }
   }
 
