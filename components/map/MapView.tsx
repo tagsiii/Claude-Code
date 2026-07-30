@@ -17,7 +17,8 @@ import type { FeatureCollection as GeoJsonFC } from 'geojson';
 import {
   scoreFillColor, dealRadiusPx, isApproximate, cnRadiusPx, choroplethColor,
   CN_POINT_COLOR, US_POINT_COLOR, US_LEADING_COLOR, FACILITY_COLOR,
-  CABLE_COLOR, EEZ_LINE_COLOR, CHORO_BUCKETS, basemapStyle, LAYER_FILES,
+  CABLE_COLOR, CABLE_CORE_DARK, CABLE_HALO, EEZ_LINE_COLOR, HIGHLIGHT_COLOR,
+  CHORO_BUCKETS, basemapStyle, LAYER_FILES,
   type RGBA,
 } from '@/lib/geo/mapStyle';
 import { formatUsd, formatScore, formatStage } from '@/lib/utils/format';
@@ -205,6 +206,15 @@ export default function MapView() {
           ? usFc.features.filter((f) => f.properties?.iso3 === iso3).length
           : null;
         const dealCount = dealFc.features.filter((f) => f.properties?.iso3 === iso3).length;
+        const topDeals = dealFc.features
+          .filter((f) => f.properties?.iso3 === iso3)
+          .map((f) => ({
+            id: String(f.properties?.id ?? ''),
+            title: String(f.properties?.title ?? ''),
+            score: (f.properties?.score as number | null) ?? null,
+          }))
+          .sort((a, b) => (b.score ?? -1) - (a.score ?? -1))
+          .slice(0, 5);
         setPopup({
           x: info.x, y: info.y, kind,
           props: {
@@ -214,6 +224,7 @@ export default function MapView() {
             cnCount: sums[iso3]?.count ?? 0,
             usCount,
             dealCount,
+            topDeals,
           },
         });
         return;
@@ -235,6 +246,8 @@ export default function MapView() {
           id: 'choropleth',
           data: cache.countries as unknown as GeoJsonFC,
           pickable: true,
+          autoHighlight: true,
+          highlightColor: [245, 158, 11, 60],
           stroked: true,
           filled: true,
           getFillColor: (f) =>
@@ -262,15 +275,30 @@ export default function MapView() {
     }
 
     if (toggles.cables && cache.cables) {
+      // Glow effect: a wide soft halo under a bright core line (the classic
+      // infrastructure-map look). Only the core is pickable/highlightable.
+      layers.push(
+        new GeoJsonLayer({
+          id: 'cables-halo',
+          data: cache.cables as unknown as GeoJsonFC,
+          stroked: true,
+          filled: false,
+          getLineColor: CABLE_HALO,
+          getLineWidth: 5,
+          lineWidthUnits: 'pixels',
+        })
+      );
       layers.push(
         new GeoJsonLayer({
           id: 'cables',
           data: cache.cables as unknown as GeoJsonFC,
           pickable: true,
+          autoHighlight: true,
+          highlightColor: HIGHLIGHT_COLOR,
           stroked: true,
           filled: false,
-          getLineColor: CABLE_COLOR,
-          getLineWidth: 1.5,
+          getLineColor: dark ? CABLE_CORE_DARK : CABLE_COLOR,
+          getLineWidth: 1.6,
           lineWidthUnits: 'pixels',
           onClick: (info) => onDeckClick(info, 'cable'),
         })
@@ -281,6 +309,8 @@ export default function MapView() {
       layers.push(
         new ScatterplotLayer({
           id: 'facilities',
+          autoHighlight: true,
+          highlightColor: HIGHLIGHT_COLOR,
           data: (cache.facilities as FC).features.filter((f) => f.geometry),
           pickable: true,
           getPosition: (f: GeoFeature) => (f.geometry.coordinates as [number, number]),
@@ -296,6 +326,8 @@ export default function MapView() {
       layers.push(
         new ScatterplotLayer({
           id: 'cn-projects',
+          autoHighlight: true,
+          highlightColor: HIGHLIGHT_COLOR,
           data: (cache.cnProjects as FC).features.filter((f) => f.geometry),
           pickable: true,
           getPosition: (f: GeoFeature) => (f.geometry.coordinates as [number, number]),
@@ -311,6 +343,8 @@ export default function MapView() {
       layers.push(
         new ScatterplotLayer({
           id: 'us-activity',
+          autoHighlight: true,
+          highlightColor: HIGHLIGHT_COLOR,
           data: (cache.usActivity as FC).features.filter((f) => f.geometry),
           pickable: true,
           getPosition: (f: GeoFeature) => (f.geometry.coordinates as [number, number]),
@@ -327,6 +361,8 @@ export default function MapView() {
       layers.push(
         new ScatterplotLayer({
           id: 'deals',
+          autoHighlight: true,
+          highlightColor: HIGHLIGHT_COLOR,
           data: dealFc.features,
           pickable: true,
           stroked: true,
@@ -360,6 +396,27 @@ export default function MapView() {
       layers: deckLayers,
       getCursor: ({ isHovering, isDragging }) =>
         isDragging ? 'grabbing' : isHovering ? 'pointer' : 'grab',
+      getTooltip: (info: PickingInfo) => {
+        const obj = info.object as GeoFeature | undefined;
+        if (!obj || !info.layer) return null;
+        const p = obj.properties ?? {};
+        const lines = tooltipLines(info.layer.id, p);
+        if (lines.length === 0) return null;
+        return {
+          html: lines
+            .map((l, i) => `<div style="${i === 0 ? 'font-weight:600' : 'opacity:.75'}">${escapeHtml(l)}</div>`)
+            .join(''),
+          style: {
+            backgroundColor: 'rgba(15, 23, 42, 0.92)',
+            color: '#e2e8f0',
+            borderRadius: '10px',
+            padding: '8px 12px',
+            fontSize: '12px',
+            maxWidth: '280px',
+            border: '1px solid rgba(148, 163, 184, 0.25)',
+          },
+        };
+      },
     });
   }, [deckLayers]);
 
@@ -427,10 +484,15 @@ export default function MapView() {
             popup={popup}
             onClose={() => setPopup(null)}
             onFilterCountry={applyCountryFilter}
-            containerW={containerRef.current?.clientWidth ?? 0}
-            containerH={containerRef.current?.clientHeight ?? 0}
           />
         )}
+
+        {/* Licensed-data attribution — required by TeleGeography's CC BY-NC-SA */}
+        {(layerCache.current.cables as FC | null | undefined)?.features?.length ? (
+          <div className="absolute bottom-8 right-3 text-[10px] text-muted-foreground/80 bg-card/70 backdrop-blur rounded px-2 py-0.5 pointer-events-none">
+            Submarine cable data © TeleGeography
+          </div>
+        ) : null}
 
         {toggles.choropleth && (
           <div className="absolute bottom-3 left-3 rounded-xl border border-border bg-card/90 backdrop-blur px-3 py-2 text-[11px] space-y-1">
@@ -488,30 +550,17 @@ function TogglePill({
 }
 
 function MapPopup({
-  popup, onClose, onFilterCountry, containerW, containerH,
+  popup, onClose, onFilterCountry,
 }: {
   popup: Popup;
   onClose: () => void;
   onFilterCountry: (iso3: string) => void;
-  containerW: number;
-  containerH: number;
 }) {
   const p = popup.props;
-  // Keep the card inside the canvas (overflow-hidden would clip it): clamp
-  // horizontally, and open upward when the click is near the bottom edge.
-  const CARD_W = 260;
-  const EST_H = 190;
-  const style: React.CSSProperties = {
-    left: Math.min(Math.max(8, popup.x - CARD_W / 2), Math.max(8, containerW - CARD_W - 8)),
-    ...(containerH > 0 && popup.y + 14 + EST_H > containerH
-      ? { bottom: Math.max(8, containerH - popup.y + 14) }
-      : { top: popup.y + 14 }),
-  };
+  // Left-anchored info panel (reference-map style) — no clamping math needed,
+  // and long country briefings can scroll.
   return (
-    <div
-      className="absolute z-10 w-[260px] rounded-xl border border-border bg-card/95 backdrop-blur shadow-lg p-3 text-xs animate-fade-in"
-      style={style}
-    >
+    <div className="absolute z-10 top-3 left-3 bottom-9 w-[290px] max-w-[85%] overflow-y-auto rounded-2xl border border-border bg-card/95 backdrop-blur shadow-lg p-4 text-xs animate-fade-in">
       <button
         onClick={onClose}
         className="absolute top-2 right-2 text-muted-foreground hover:text-foreground"
@@ -602,6 +651,21 @@ function MapPopup({
               Potential white space: heavy Chinese investment, no recorded US presence.
             </div>
           )}
+          {Array.isArray(p.topDeals) && (p.topDeals as Array<{ id: string; title: string; score: number | null }>).length > 0 && (
+            <div className="space-y-1 pt-1">
+              <div className="text-muted-foreground/80 uppercase tracking-wider text-[10px] font-semibold">Top tracked deals here</div>
+              {(p.topDeals as Array<{ id: string; title: string; score: number | null }>).map((d) => (
+                <a
+                  key={d.id}
+                  href={`/dashboard/deals/${d.id}`}
+                  className="block rounded-lg bg-secondary/70 hover:bg-secondary px-2.5 py-1.5 transition-colors"
+                >
+                  <span className="text-foreground leading-snug line-clamp-2">{d.title}</span>
+                  {d.score != null && <span className="text-muted-foreground font-mono-numbers"> · {d.score.toFixed(0)}</span>}
+                </a>
+              ))}
+            </div>
+          )}
           <button
             onClick={() => onFilterCountry(String(p.iso3))}
             className="inline-block text-primary hover:underline font-medium"
@@ -612,4 +676,40 @@ function MapPopup({
       )}
     </div>
   );
+}
+
+// ─── Hover tooltip content per layer ─────────────────────────────────────────
+function tooltipLines(layerId: string, p: Record<string, unknown>): string[] {
+  const usd = (v: unknown) =>
+    typeof v === 'number' && v > 0 ? formatUsd(v) : null;
+  switch (layerId) {
+    case 'deals': {
+      const bits = [
+        p.score != null ? `Score ${Number(p.score).toFixed(0)}` : null,
+        p.stage ? String(p.stage).replace(/_/g, ' ') : null,
+        usd(p.value),
+      ].filter(Boolean);
+      return [String(p.title ?? 'Deal'), bits.join(' · '), 'Click for details'].filter(Boolean) as string[];
+    }
+    case 'cn-projects': {
+      const bits = [usd(p.usd), p.year ? String(p.year) : null, p.status ? String(p.status) : null].filter(Boolean);
+      return [String(p.title ?? 'Chinese project'), `Chinese state-backed · ${bits.join(' · ')}`];
+    }
+    case 'us-activity': {
+      const bits = [String(p.agency ?? 'US agency'), usd(p.usd), p.leading ? 'leading indicator' : null].filter(Boolean);
+      return [String(p.name ?? 'US activity'), bits.join(' · ')];
+    }
+    case 'facilities':
+      return [String(p.name ?? 'Facility'), String(p.ftype ?? '').replace(/_/g, ' ')];
+    case 'cables':
+      return [String(p.name ?? 'Cable'), p.rfs ? `Submarine cable · RFS ${p.rfs}` : 'Submarine cable'];
+    case 'choropleth':
+      return [String(p.name ?? p.iso3 ?? 'Country'), 'Click for country briefing'];
+    default:
+      return [];
+  }
+}
+
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }

@@ -4,10 +4,12 @@ import Link from 'next/link';
 import { ScoreBreakdownPanel } from '@/components/ScoreBreakdownPanel';
 import { TimelinePanel } from '@/components/TimelinePanel';
 import { SourcesPanel } from '@/components/SourcesPanel';
+import { ReviewPanel } from '@/components/ReviewPanel';
 import {
-  formatSector, formatStage, formatRom, formatDate, formatRelativeTime,
+  formatSector, formatStage, formatRom, formatDate, formatRelativeTime, formatUsd,
   sectorColorClass, stageColorClass, scoreColorClass, scoreBgClass,
 } from '@/lib/utils/format';
+import type { Deal } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
 
@@ -68,6 +70,12 @@ export default async function DealDetailPage({ params }: { params: { id: string 
         </div>
       </div>
 
+      {/* Review gate */}
+      {deal.review_status === 'pending' && <ReviewPanel dealId={deal.id} note={deal.review_note} />}
+
+      {/* Key facts — every load-bearing fact with its provenance */}
+      <KeyFactsPanel deal={deal} />
+
       {/* ROM */}
       {deal.rom_value_usd && (
         <div className="card p-5">
@@ -80,6 +88,7 @@ export default async function DealDetailPage({ params }: { params: { id: string 
           {deal.rom_basis && (
             <div className="text-muted-foreground text-sm mt-1">Basis: {deal.rom_basis}</div>
           )}
+          <Provenance deal={deal} field="rom_value_usd" />
         </div>
       )}
 
@@ -158,6 +167,131 @@ export default async function DealDetailPage({ params }: { params: { id: string 
 
       {/* Sources */}
       {deal.sources && deal.sources.length > 0 && <SourcesPanel sources={deal.sources} />}
+    </div>
+  );
+}
+
+// Which outlet asserted a fact, and when — the audit trail under each number.
+function Provenance({ deal, field }: { deal: Deal; field: string }) {
+  const p = deal.provenance?.[field];
+  if (!p) return null;
+  return (
+    <div className="text-[11px] text-muted-foreground/80 mt-1.5">
+      per {p.source} · {p.date}
+    </div>
+  );
+}
+
+// Data-quality + evidence panel: grade, what earned it, independence,
+// official cross-reference, financing structure, counterparties, staleness.
+function KeyFactsPanel({ deal }: { deal: Deal }) {
+  const comp = (deal.quality_components ?? {}) as Record<string, unknown>;
+  const details = deal.enrichment_details;
+  const daysSinceUpdate = Math.floor(
+    (Date.now() - new Date(deal.last_updated_at).getTime()) / 86_400_000
+  );
+  const gradeTone =
+    deal.data_quality_grade === 'A' ? 'text-green-600 dark:text-green-400'
+    : deal.data_quality_grade === 'B' ? 'text-blue-600 dark:text-blue-400'
+    : deal.data_quality_grade === 'C' ? 'text-amber-600 dark:text-amber-400'
+    : 'text-red-600 dark:text-red-400';
+
+  const evidence: Array<{ label: string; ok: boolean }> = [
+    { label: 'Named sponsor', ok: comp.has_sponsor === true },
+    { label: 'Sourced value', ok: comp.has_value === true },
+    { label: '2+ independent outlets', ok: (deal.independent_source_count ?? 1) >= 2 },
+    { label: 'Precise location', ok: comp.precise_location === true },
+    { label: 'Official record match', ok: comp.official_xref === true },
+    { label: 'Confirmed', ok: comp.confirmed === true },
+  ];
+
+  return (
+    <div className="card p-5">
+      <div className="flex items-start justify-between gap-4 mb-3">
+        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+          Evidence &amp; Key Facts
+        </div>
+        {deal.data_quality_grade && (
+          <div className="text-right">
+            <span className={`text-2xl font-bold font-mono-numbers ${gradeTone}`}>{deal.data_quality_grade}</span>
+            <div className="text-[10px] text-muted-foreground">data quality</div>
+          </div>
+        )}
+      </div>
+
+      {deal.quality_components != null && (
+        <div className="flex flex-wrap gap-x-4 gap-y-1 mb-4">
+          {evidence.map((e) => (
+            <span key={e.label} className={`text-xs ${e.ok ? 'text-foreground/85' : 'text-muted-foreground/50 line-through'}`}>
+              {e.ok ? '✓' : '✗'} {e.label}
+            </span>
+          ))}
+        </div>
+      )}
+
+      <div className="grid sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
+        <div>
+          <div className="text-xs text-muted-foreground">Independent sources</div>
+          <div className="text-foreground font-medium">
+            {deal.independent_source_count ?? deal.source_count} outlet{(deal.independent_source_count ?? deal.source_count) !== 1 ? 's' : ''}
+            {(deal.independent_source_count ?? 2) < 2 && (
+              <span className="ml-2 text-[10px] font-semibold text-amber-600 dark:text-amber-400">UNCORROBORATED</span>
+            )}
+          </div>
+        </div>
+        <div>
+          <div className="text-xs text-muted-foreground">Last corroborated</div>
+          <div className={`font-medium ${daysSinceUpdate > 60 ? 'text-amber-600 dark:text-amber-400' : 'text-foreground'}`}>
+            {formatDate(deal.last_corroborated_at ?? deal.last_updated_at)}
+            {daysSinceUpdate > 60 && ' · stale'}
+          </div>
+        </div>
+        {deal.xref_cn_ref && (
+          <div className="sm:col-span-2">
+            <div className="text-xs text-muted-foreground">Official record</div>
+            <div className="text-foreground font-medium text-[hsl(var(--success))]">✓ {deal.xref_note ?? `AidData ${deal.xref_cn_ref}`}</div>
+          </div>
+        )}
+        {details?.financing_structure && (details.financing_structure.type || details.financing_structure.details) && (
+          <div className="sm:col-span-2">
+            <div className="text-xs text-muted-foreground">Financing structure</div>
+            <div className="text-foreground">
+              {details.financing_structure.type && details.financing_structure.type !== 'unknown' && (
+                <span className="font-medium capitalize">{details.financing_structure.type}</span>
+              )}
+              {details.financing_structure.details && (
+                <span className="text-foreground/85"> — {details.financing_structure.details}</span>
+              )}
+            </div>
+          </div>
+        )}
+        {details?.counterparties && details.counterparties.length > 0 && (
+          <div className="sm:col-span-2">
+            <div className="text-xs text-muted-foreground mb-1">Counterparties</div>
+            <div className="flex flex-wrap gap-1.5">
+              {details.counterparties.map((c, i) => (
+                <span key={i} className="text-xs bg-secondary rounded-full px-2.5 py-1 text-foreground">
+                  {c.name}
+                  {c.role && <span className="text-muted-foreground"> · {c.role}</span>}
+                  {c.country && <span className="text-muted-foreground"> · {c.country}</span>}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+        {deal.lifecycle_stage && deal.provenance?.lifecycle_stage && (
+          <div>
+            <div className="text-xs text-muted-foreground">Stage asserted by</div>
+            <div className="text-foreground text-xs">{deal.provenance.lifecycle_stage.source} · {deal.provenance.lifecycle_stage.date}</div>
+          </div>
+        )}
+        {deal.provenance?.financial_sponsors && (
+          <div>
+            <div className="text-xs text-muted-foreground">Sponsors asserted by</div>
+            <div className="text-foreground text-xs">{deal.provenance.financial_sponsors.source} · {deal.provenance.financial_sponsors.date}</div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

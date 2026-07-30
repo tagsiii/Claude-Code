@@ -11,10 +11,15 @@ import { normalizeCandidate } from './normalize';
 import { resolveSponsorEntities } from './sponsors';
 import { geocodeCandidate, applyDealLocation, type GeoResult } from './geocode';
 import { applySpatialFlags, anyFlagSet, flagsChanged, newlyRaisedFlags } from './spatialFlags';
+import {
+  countIndependentSources, computeQualityGrade, autoReviewStatus,
+  stampProvenance, sourceLabel, type Provenance,
+} from './quality';
+import { matchCnProject } from '../db/queries';
 import { scoreDeal } from './scoring';
-import { generateDealSummary, extractDealFacts } from '../llm/analyze';
+import { generateDealSummary, extractDealFacts, type DealFacts } from '../llm/analyze';
 import { fetchArticleText } from '../utils/articleFetch';
-import type { ConfidenceTier, Deal, DealCandidate, LocationPrecision } from '../types';
+import type { ConfidenceTier, Deal, DealCandidate, EnrichmentDetails, LocationPrecision } from '../types';
 
 export interface IngestSourceRef {
   id: string;
@@ -88,6 +93,11 @@ export async function ingestCandidate(
   // Geocode: facility → city → country centroid (best-effort).
   const geo: GeoResult | null = await geocodeCandidate(candidate, ctx.warnings);
 
+  // Official-record cross-reference: does AidData already know this project?
+  // (Best-effort; pre-migration databases return null.)
+  const candidateIso3 = candidate.host_country_iso3 ?? geo?.iso3 ?? null;
+  const xref = candidateIso3 ? await matchCnProject(candidate.title, candidateIso3) : null;
+
   const dup = await findDuplicateDeal(candidate, {
     facilityId: geo?.facilityId ?? null,
     sponsorKeys,
@@ -151,38 +161,138 @@ export async function ingestCandidate(
       } catch { /* non-fatal */ }
     }
 
-    if (!hasFieldChanges && newlyLinked === 0 && !spatialChanged) {
+    // Official-record cross-reference lands once, then sticks.
+    const xrefNew = !existing.xref_cn_ref && xref ? xref : null;
+    if (xrefNew) {
+      try {
+        await addDealEvent({
+          deal_id: existing.id,
+          event_date: today(),
+          description: `Corroborated by official record: AidData project ${xrefNew.ref} — "${xrefNew.title.slice(0, 100)}"`,
+          source_id: null,
+        });
+      } catch { /* non-fatal */ }
+    }
+
+    if (!hasFieldChanges && newlyLinked === 0 && !spatialChanged && !xrefNew) {
       return geoUpgraded ? 'updated' : 'skipped';
     }
 
+    // Targeted re-enrichment: a NEW article about a deal missing key facts is
+    // worth one read — fill value/sponsors from the body, not just the title.
+    let mergedAll = merged;
+    let enrichmentDetails: EnrichmentDetails | null = null;
+    let enrichLabel: string | null = null;
+    const needsFacts =
+      !existing.rom_value_usd || (existing.financial_sponsors?.length ?? 0) === 0 || !existing.enrichment_details;
+    if (newlyLinked > 0 && needsFacts && ctx.generateSummaries !== false) {
+      try {
+        const freshRef = sources.find((s) => !alreadyLinked.has(s.id) && /^https?:/i.test(s.url));
+        if (freshRef) {
+          const text = freshRef.excerpt ?? (await fetchArticleText(freshRef.url));
+          if (text) {
+            if (!freshRef.excerpt) await updateSourceExcerpt(freshRef.id, text);
+            const facts = await extractDealFacts(existing.title, [{ url: freshRef.url, text: text.slice(0, 5000) }]);
+            if (facts) {
+              const factCandidate = normalizeCandidate({
+                ...facts, title: existing.title, sector: existing.sector,
+              } as DealCandidate);
+              const merged2 = mergeCandidateIntoDeal({ ...existing, ...merged } as Deal, factCandidate);
+              mergedAll = { ...merged, ...merged2 };
+              enrichmentDetails = buildEnrichmentDetails(facts, existing.enrichment_details);
+              enrichLabel = sourceLabel(freshRef);
+            }
+          }
+        }
+      } catch { /* re-enrichment is best-effort */ }
+    }
+
+    // Independence, provenance, quality grade.
+    const allUrls = [...(existing.sources ?? []).map((s) => s.url), ...sources.map((s) => s.url)];
+    const independent = Math.max(1, countIndependentSources(allUrls));
+    const newRef = sources.find((s) => !alreadyLinked.has(s.id));
+    const provLabel = enrichLabel ?? (newRef ? sourceLabel(newRef) : 'update');
+    const provenance: Provenance = stampProvenance(
+      existing.provenance,
+      Object.keys(mergedAll).filter((k) => !k.endsWith('_reasoning') && !k.endsWith('_inferred_at')),
+      provLabel,
+      today()
+    );
+    const gradeInput = {
+      ...existing, ...mergedAll, ...flags,
+      xref_cn_ref: xrefNew?.ref ?? existing.xref_cn_ref,
+      location_precision: geoUpgraded && geo ? geo.precision : existing.location_precision,
+      source_confidence_tier: existing.source_confidence_tier,
+    };
+    const { grade, components } = computeQualityGrade(gradeInput, independent);
+
     const newSourceCount = existing.source_count + newlyLinked;
-    const nextState = { ...existing, ...merged, ...flags, source_count: newSourceCount };
+    const nextState = {
+      ...gradeInput,
+      source_count: newSourceCount,
+      independent_source_count: independent,
+    };
     const { composite, breakdown } = await scoreDeal(nextState);
 
-    await upsertDeal({
+    await upsertDealSafe({
       id: existing.id,
-      ...merged,
+      ...mergedAll,
       composite_score: composite,
       score_breakdown: breakdown,
       score_calculated_at: new Date().toISOString(),
       source_count: newSourceCount,
+    }, {
+      independent_source_count: independent,
+      provenance,
+      data_quality_grade: grade,
+      quality_components: components,
+      ...(enrichmentDetails ? { enrichment_details: enrichmentDetails } : {}),
+      ...(xrefNew ? { xref_cn_ref: xrefNew.ref, xref_note: xrefNew.note } : {}),
+      ...(newlyLinked > 0 ? { last_corroborated_at: new Date().toISOString() } : {}),
     });
 
-    await logChangeEvents(existing, merged, newlyLinked);
+    await logChangeEvents(existing, mergedAll, newlyLinked);
 
     return 'updated';
   }
 
   // ─── New deal ────────────────────────────────────────────────────────────────
+  // Independence, provenance, quality grade, and the review gate — all computed
+  // BEFORE insert so a thin single-source rumor lands in the review queue
+  // instead of the main table.
+  const tier = ctx.sourceConfidenceTier ?? 2;
+  const independent = Math.max(1, countIndependentSources(sources.map((s) => s.url)));
+  const initialLabel = sources[0] ? sourceLabel(sources[0]) : 'initial report';
+  const initialFields = (
+    ['sponsoring_state', 'host_country', 'sector', 'subsector', 'lifecycle_stage', 'rom_value_usd', 'financial_sponsors'] as const
+  ).filter((f) => {
+    const v = candidate[f as keyof DealCandidate];
+    return Array.isArray(v) ? v.length > 0 : v != null;
+  });
+  let provenance: Provenance = stampProvenance({}, [...initialFields], initialLabel, today());
+
+  const { grade, components } = computeQualityGrade(
+    {
+      ...(candidate as Partial<Deal>),
+      location_precision: geo?.precision,
+      source_confidence_tier: tier as ConfidenceTier,
+      xref_cn_ref: xref?.ref ?? null,
+    },
+    independent
+  );
+  const reviewStatus = autoReviewStatus(grade, tier, independent, candidate.is_confirmed ?? false);
+
   // Score against the SAME source_count that gets stored — cited-but-unresolved
   // URLs must not inflate the score, or the next merge silently rescores lower.
   const { composite, breakdown } = await scoreDeal({
     ...(candidate as Partial<Deal>),
     source_count: sources.length || 1,
-    source_confidence_tier: ctx.sourceConfidenceTier ?? 2,
+    independent_source_count: independent,
+    source_confidence_tier: tier as ConfidenceTier,
+    xref_cn_ref: xref?.ref ?? null,
   });
 
-  const newDeal = await upsertDeal({
+  const newDeal = await upsertDealSafe({
     title: candidate.title,
     sponsoring_state: candidate.sponsoring_state,
     sponsoring_entities: candidate.sponsoring_entities ?? [],
@@ -201,9 +311,27 @@ export async function ingestCandidate(
     score_breakdown: breakdown,
     score_calculated_at: new Date().toISOString(),
     source_count: sources.length || 1,
-    source_confidence_tier: ctx.sourceConfidenceTier ?? 2,
+    source_confidence_tier: tier as ConfidenceTier,
     status: 'active',
+  }, {
+    independent_source_count: independent,
+    provenance,
+    data_quality_grade: grade,
+    quality_components: components,
+    review_status: reviewStatus,
+    ...(xref ? { xref_cn_ref: xref.ref, xref_note: xref.note, last_corroborated_at: new Date().toISOString() } : {}),
   });
+
+  if (xref) {
+    try {
+      await addDealEvent({
+        deal_id: newDeal.id,
+        event_date: today(),
+        description: `Corroborated by official record: AidData project ${xref.ref} — "${xref.title.slice(0, 100)}"`,
+        source_id: null,
+      });
+    } catch { /* non-fatal */ }
+  }
 
   for (const ref of sources) {
     await linkSourceToDeal(newDeal.id, ref.id);
@@ -303,15 +431,47 @@ export async function ingestCandidate(
             sector: candidate.sector,
           } as DealCandidate);
           const merged = mergeCandidateIntoDeal(newDeal, factCandidate);
-          if (Object.keys(merged).length > 0) {
+          const details = buildEnrichmentDetails(facts, null);
+
+          // Verification gate: the article body says this ISN'T a real
+          // state-backed cross-border deal → quarantine for human review.
+          const v = facts.verification;
+          const failsVerification =
+            v?.is_genuine_deal === false && (v.confidence ?? 0) >= 0.6 && tier !== 1;
+
+          const enrichSource = sourceLabel(fetched[0].ref);
+          provenance = stampProvenance(
+            provenance,
+            Object.keys(merged).filter((k) => !k.endsWith('_reasoning') && !k.endsWith('_inferred_at')),
+            enrichSource,
+            today()
+          );
+          const regrade = computeQualityGrade(
+            {
+              ...newDeal, ...merged, ...newFlags,
+              location_precision: geo?.precision ?? newDeal.location_precision,
+              xref_cn_ref: xref?.ref ?? null,
+            },
+            independent
+          );
+
+          if (Object.keys(merged).length > 0 || details || failsVerification) {
             // Include the spatial flags so the enrichment rescore doesn't lose them.
             const { composite, breakdown } = await scoreDeal({ ...newDeal, ...newFlags, ...merged });
-            enrichedDeal = (await upsertDeal({
+            enrichedDeal = (await upsertDealSafe({
               id: newDeal.id,
               ...merged,
               composite_score: composite,
               score_breakdown: breakdown,
               score_calculated_at: new Date().toISOString(),
+            }, {
+              provenance,
+              data_quality_grade: regrade.grade,
+              quality_components: regrade.components,
+              ...(details ? { enrichment_details: details } : {}),
+              ...(failsVerification
+                ? { review_status: 'pending', review_note: `AI verification: ${v?.note ?? 'not a genuine deal'}` }
+                : {}),
             })) as Deal;
           }
           for (const evt of factCandidate.key_dates) {
@@ -355,6 +515,45 @@ export async function ingestCandidate(
   }
 
   return 'created';
+}
+
+// Collapse the enrichment extras into the stored JSONB shape, preserving
+// previously-known details when the new pass returned nothing for a section.
+function buildEnrichmentDetails(
+  facts: DealFacts,
+  previous: EnrichmentDetails | null | undefined
+): EnrichmentDetails | null {
+  const details: EnrichmentDetails = { ...(previous ?? {}) };
+  if (facts.financing_structure?.type || facts.financing_structure?.details) {
+    details.financing_structure = facts.financing_structure;
+  }
+  if (facts.counterparties && facts.counterparties.length > 0) {
+    const known = new Set((details.counterparties ?? []).map((c) => c.name.toLowerCase()));
+    details.counterparties = [
+      ...(details.counterparties ?? []),
+      ...facts.counterparties.filter((c) => c.name && !known.has(c.name.toLowerCase())),
+    ];
+  }
+  if (facts.verification) details.verification = facts.verification;
+  return Object.keys(details).length > 0 ? details : null;
+}
+
+// Upsert that tolerates a pre-migration database: if the quality columns from
+// quality.sql don't exist yet, retry with just the base payload so scans keep
+// working before the user has run the migration.
+async function upsertDealSafe(
+  base: Partial<Deal>,
+  qualityFields: Record<string, unknown>
+): Promise<Deal> {
+  try {
+    return await upsertDeal({ ...base, ...qualityFields } as Partial<Deal>);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (/column|schema cache/i.test(msg)) {
+      return upsertDeal(base);
+    }
+    throw err;
+  }
 }
 
 // Append timeline events describing what changed on a merge — the audit ledger.

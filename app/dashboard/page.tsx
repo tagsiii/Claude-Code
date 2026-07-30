@@ -1,6 +1,6 @@
 import { Suspense } from 'react';
 import Link from 'next/link';
-import { getDeals, getLatestSuccessfulIngest } from '@/lib/db/queries';
+import { getDeals, getLatestSuccessfulIngest, getPendingReviewCount } from '@/lib/db/queries';
 import { TimeAgo } from '@/components/TimeAgo';
 import { DealTable } from '@/components/DealTable';
 import { DashboardControls } from '@/components/DashboardControls';
@@ -24,8 +24,10 @@ export default async function DashboardPage({
     if (first) sp[key] = first;
   }
 
-  const [deals, lastIngest] = await Promise.all([
+  const reviewMode = sp.review === 'pending';
+  const [deals, lastIngest, pendingCount] = await Promise.all([
     getDeals({
+      review: (sp.review as 'pending' | 'all') || undefined,
       sector: (sp.sector as never) || 'all',
       sponsoring_state: sp.sponsoring_state || 'all',
       lifecycle_stage: (sp.lifecycle_stage as never) || 'all',
@@ -40,6 +42,7 @@ export default async function DashboardPage({
       min_score: Number.isFinite(Number(sp.min_score)) && sp.min_score ? Number(sp.min_score) : undefined,
     }),
     getLatestSuccessfulIngest(),
+    getPendingReviewCount(),
   ]);
 
   const llmAvailable = isLlmAvailable();
@@ -60,11 +63,32 @@ export default async function DashboardPage({
         </div>
       )}
 
+      {/* Review queue banner */}
+      {!reviewMode && pendingCount > 0 && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300 flex items-center justify-between gap-4">
+          <span>
+            <span className="font-semibold">{pendingCount} deal{pendingCount !== 1 ? 's' : ''} awaiting review</span>
+            <span className="opacity-80"> — thin evidence (single source, low grade, or failed AI verification). They stay off the main table until you decide.</span>
+          </span>
+          <Link href="/dashboard?review=pending" className="font-semibold whitespace-nowrap hover:underline">
+            Review →
+          </Link>
+        </div>
+      )}
+      {reviewMode && (
+        <div className="rounded-xl border border-border bg-card px-4 py-3 text-sm text-muted-foreground flex items-center justify-between gap-4">
+          <span>Showing the <span className="font-semibold text-foreground">review queue</span> — open a deal to approve or reject it.</span>
+          <Link href="/dashboard" className="text-primary font-medium whitespace-nowrap hover:underline">
+            Back to main table →
+          </Link>
+        </div>
+      )}
+
       {/* Top bar */}
       <div className="flex flex-col sm:flex-row sm:items-end gap-4 justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-foreground tracking-tight">
-            Transactions
+            {reviewMode ? 'Review Queue' : 'Transactions'}
           </h1>
           <p className="text-muted-foreground text-sm mt-1">
             {deals.length} active deal{deals.length !== 1 ? 's' : ''} tracked

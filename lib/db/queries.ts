@@ -37,6 +37,17 @@ export async function getDeals(filters: DashboardFilters = {}): Promise<Deal[]> 
     .select('*')
     .eq('status', 'active');
 
+  // Review workflow: default view shows vetted deals only (approved or
+  // pre-migration nulls); 'pending' shows the review queue; 'all' shows both.
+  // Rejected deals stay hidden everywhere — they act as a dedup blocklist.
+  if (filters.review === 'pending') {
+    query = query.eq('review_status', 'pending');
+  } else if (filters.review === 'all') {
+    query = query.or('review_status.is.null,review_status.neq.rejected');
+  } else {
+    query = query.or('review_status.is.null,review_status.eq.approved');
+  }
+
   if (filters.sector && filters.sector !== 'all') {
     query = query.eq('sector', filters.sector);
   }
@@ -368,6 +379,82 @@ export async function getDocumentBySha(sha256: string): Promise<DocumentRecord |
 
 export async function deleteDocument(id: string): Promise<void> {
   const { error } = await db.from('documents').delete().eq('id', id);
+  if (error) throw error;
+}
+
+// ─── Data-quality vetting ─────────────────────────────────────────────────────
+
+// Fuzzy match against the official AidData record (quality.sql RPC). Only a
+// confident match (similarity ≥ 0.45) counts as corroboration.
+export async function matchCnProject(
+  title: string,
+  iso3: string
+): Promise<{ ref: string; title: string; note: string } | null> {
+  try {
+    const { data, error } = await db.rpc('match_cn_project', { p_title: title, p_iso3: iso3 });
+    if (error || !Array.isArray(data) || data.length === 0) return null;
+    const top = data[0] as { project_ref: string; title: string; commitment_usd: number | null; year: number | null; sim: number };
+    if (top.sim < 0.45) return null;
+    const usd = top.commitment_usd ? `$${(top.commitment_usd / 1e6).toFixed(0)}M` : 'value n/a';
+    return {
+      ref: top.project_ref,
+      title: top.title,
+      note: `AidData ${top.project_ref} (${usd}${top.year ? `, ${top.year}` : ''}) — similarity ${(top.sim * 100).toFixed(0)}%`,
+    };
+  } catch {
+    return null; // pre-migration
+  }
+}
+
+export async function getPendingReviewCount(): Promise<number> {
+  try {
+    const { count } = await db
+      .from('deals')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'active')
+      .eq('review_status', 'pending');
+    return count ?? 0;
+  } catch {
+    return 0;
+  }
+}
+
+export async function setDealReviewStatus(
+  id: string,
+  status: 'approved' | 'rejected',
+  note?: string
+): Promise<void> {
+  const { error } = await db
+    .from('deals')
+    .update({ review_status: status, ...(note ? { review_note: note } : {}) })
+    .eq('id', id);
+  if (error) throw error;
+}
+
+// Domain blocklist (A6): outlets the analyst never wants ingested again.
+export async function getBlockedDomains(): Promise<string[]> {
+  try {
+    const { data, error } = await db.from('domain_rules').select('domain').eq('action', 'block');
+    if (error) return [];
+    return (data ?? []).map((r) => r.domain as string);
+  } catch {
+    return [];
+  }
+}
+
+export async function listDomainRules(): Promise<Array<{ domain: string; note: string | null; created_at: string }>> {
+  const { data, error } = await db.from('domain_rules').select('domain, note, created_at').order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as Array<{ domain: string; note: string | null; created_at: string }>;
+}
+
+export async function addDomainRule(domain: string, note?: string): Promise<void> {
+  const { error } = await db.from('domain_rules').upsert({ domain, action: 'block', note: note ?? null }, { onConflict: 'domain' });
+  if (error) throw error;
+}
+
+export async function removeDomainRule(domain: string): Promise<void> {
+  const { error } = await db.from('domain_rules').delete().eq('domain', domain);
   if (error) throw error;
 }
 

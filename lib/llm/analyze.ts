@@ -139,16 +139,24 @@ function chunkText(text: string, size: number): string[] {
 
 // Read the full text of source article(s) about ONE deal and extract concrete
 // facts (sponsors, values, stage, countries) as a candidate-shaped object that
-// merges onto the deal through the standard running-tab path.
+// merges onto the deal through the standard running-tab path. Also returns the
+// richer enrichment block: financing structure, counterparties, and a
+// genuineness verification the vetting layer uses to quarantine non-deals.
+export type DealFacts = Partial<DealCandidate> & {
+  financing_structure?: { type?: string | null; details?: string | null } | null;
+  counterparties?: Array<{ name: string; role?: string | null; country?: string | null }> | null;
+  verification?: { is_genuine_deal?: boolean; confidence?: number; note?: string | null } | null;
+};
+
 export async function extractDealFacts(
   dealTitle: string,
   articles: Array<{ url: string; text: string }>
-): Promise<Partial<DealCandidate> | null> {
+): Promise<DealFacts | null> {
   if (!isLlmAvailable() || articles.length === 0) return null;
   try {
     const prompt = buildEnrichmentPrompt(dealTitle, articles);
     const response = await callClaude(DEAL_ENRICHMENT_SYSTEM, prompt, 2048);
-    return parseJsonSafely<Partial<DealCandidate>>(response);
+    return parseJsonSafely<DealFacts>(response);
   } catch {
     return null; // enrichment is best-effort
   }

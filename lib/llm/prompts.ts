@@ -122,7 +122,14 @@ Return ONLY a JSON object (no markdown) with this schema:
   "key_dates": [{"date":"YYYY-MM-DD or YYYY-MM or YYYY","description":"event"}],
   "named_facilities": ["specific named facilities in the text"],
   "place_names": ["cities/locations in the text"],
-  "host_country_iso3": "ISO alpha-3 code or null"
+  "host_country_iso3": "ISO alpha-3 code or null",
+  "financing_structure": {"type": "debt|equity|grant|mixed|unknown", "details": "1 sentence on terms the text states (tenor, rate, tranches), or null"},
+  "counterparties": [{"name": "...", "role": "lender|borrower|contractor|operator|government|other", "country": "country or null"}],
+  "verification": {
+    "is_genuine_deal": true or false,
+    "confidence": 0.0-1.0,
+    "note": "1 sentence: is this text genuinely describing a SPECIFIC state-backed CROSS-BORDER infrastructure/technology transaction (not an opinion piece, a domestic project, a hypothetical, or general market commentary)?"
+  }
 }`;
 
 export function buildEnrichmentPrompt(

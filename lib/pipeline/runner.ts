@@ -1,9 +1,10 @@
-import { getConnectorConfigs, markConnectorRunComplete, createIngestLog, updateIngestLog } from '../db/queries';
+import { getConnectorConfigs, markConnectorRunComplete, createIngestLog, updateIngestLog, getBlockedDomains } from '../db/queries';
 import { getConnectorByName } from '../connectors';
 import { extractDealsFromArticles } from '../llm/analyze';
 import { upsertSource } from '../db/queries';
 import { ingestCandidate, type IngestSourceRef } from './ingestCandidate';
 import { refreshGapViews } from './spatialFlags';
+import { dedupeSyndicated, registrableDomain } from './quality';
 import type { IngestResult, RawArticle } from '../types';
 
 export interface RunOptions {
@@ -42,11 +43,25 @@ export async function runIngestionPipeline(opts: RunOptions = {}): Promise<Inges
     let dealsFound = 0;
 
     try {
-      // 1. Fetch raw articles
-      const articles: RawArticle[] = await connector.fetchArticles({
+      // 1. Fetch raw articles, then apply the vetting filters: drop outlets on
+      // the analyst's blocklist, and collapse syndicated copies (same headline
+      // republished across domains) so one wire story can't masquerade as
+      // multiple corroborating sources.
+      const rawArticles: RawArticle[] = await connector.fetchArticles({
         lookbackDays: opts.lookbackDays ?? 7,
       });
+      const blocked = new Set(await getBlockedDomains());
+      const unblocked = blocked.size > 0
+        ? rawArticles.filter((a) => !blocked.has(registrableDomain(a.url)))
+        : rawArticles;
+      const articles = dedupeSyndicated(unblocked);
       const connectorWarnings = connector.getWarnings();
+      if (rawArticles.length !== articles.length) {
+        connectorWarnings.push(
+          `${rawArticles.length - articles.length} article(s) filtered: ` +
+          `${rawArticles.length - unblocked.length} blocked outlet(s), ${unblocked.length - articles.length} syndicated cop(ies)`
+        );
+      }
 
       // 2. Persist all sources first (for auditability regardless of LLM result)
       const sourcesByUrl = new Map<string, IngestSourceRef>();

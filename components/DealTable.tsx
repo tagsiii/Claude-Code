@@ -13,6 +13,14 @@ import {
   tierColorClass,
 } from '@/lib/utils/format';
 
+// Data-quality letter grade tint: A/B earn confidence colors, C/D warn.
+function gradeClass(grade: string): string {
+  if (grade === 'A') return 'bg-green-100 text-green-700 dark:bg-green-500/15 dark:text-green-300';
+  if (grade === 'B') return 'bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300';
+  if (grade === 'C') return 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300';
+  return 'bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300';
+}
+
 export function DealTable({ deals }: { deals: Deal[] }) {
   const router = useRouter();
 
@@ -48,12 +56,43 @@ export function DealTable({ deals }: { deals: Deal[] }) {
                   >
                     {deal.title}
                   </a>
-                  {deal.host_country && (
-                    <div className="text-xs text-muted-foreground mt-0.5">
-                      {deal.host_country}
-                      {deal.host_region && <span> · {deal.host_region}</span>}
-                    </div>
-                  )}
+                  <div className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1.5 flex-wrap">
+                    {deal.host_country && (
+                      <span>
+                        {deal.host_country}
+                        {deal.host_region && <span> · {deal.host_region}</span>}
+                      </span>
+                    )}
+                    {deal.data_quality_grade && (
+                      <span
+                        className={`inline-flex items-center justify-center w-4 h-4 rounded text-[10px] font-bold ${gradeClass(deal.data_quality_grade)}`}
+                        title={`Data quality ${deal.data_quality_grade} — evidence completeness (sponsor, value, independent sources, location, official cross-reference)`}
+                      >
+                        {deal.data_quality_grade}
+                      </span>
+                    )}
+                    {(deal.independent_source_count ?? 2) < 2 && (
+                      <span
+                        className="text-[10px] font-semibold text-amber-600 dark:text-amber-400"
+                        title="Only one independent outlet reports this — treat with caution"
+                      >
+                        UNCORROBORATED
+                      </span>
+                    )}
+                    {deal.review_status === 'pending' && (
+                      <span className="text-[10px] font-semibold px-1.5 py-px rounded-full bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
+                        needs review
+                      </span>
+                    )}
+                    {deal.xref_cn_ref && (
+                      <span
+                        className="text-[10px] font-semibold text-[hsl(var(--success))]"
+                        title={deal.xref_note ?? 'Matched to an official AidData record'}
+                      >
+                        ✓ official record
+                      </span>
+                    )}
+                  </div>
                 </td>
 
                 {/* Sponsor */}

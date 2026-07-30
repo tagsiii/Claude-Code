@@ -145,7 +145,9 @@ function calcFinancing(deal: Partial<Deal>): Omit<SubScore, 'weight' | 'contribu
 }
 
 function calcCorroboration(deal: Partial<Deal>): Omit<SubScore, 'weight' | 'contribution'> {
-  const count = deal.source_count ?? 1;
+  // INDEPENDENT sources (distinct outlets) drive corroboration — two copies of
+  // one wire story are one source. Falls back to raw count pre-migration.
+  const count = deal.independent_source_count ?? deal.source_count ?? 1;
   const tier = deal.source_confidence_tier ?? 3;
 
   let score = count === 1 ? 20 : count <= 3 ? 45 : count <= 5 ? 65 : 80;
@@ -154,9 +156,15 @@ function calcCorroboration(deal: Partial<Deal>): Omit<SubScore, 'weight' | 'cont
   if (tier === 1) score = Math.min(100, score + 20);
   else if (tier === 2) score = Math.min(100, score + 5);
 
+  // Official-record corroboration (AidData cross-reference) is strong evidence.
+  if (deal.xref_cn_ref) score = Math.min(100, score + 15);
+
   return {
     score,
-    reasoning: `${count} source(s); best confidence tier: ${tier === 1 ? 'primary/official' : tier === 2 ? 'established press' : 'secondary'}`,
+    reasoning:
+      `${count} independent source(s); best tier: ` +
+      `${tier === 1 ? 'primary/official' : tier === 2 ? 'established press' : 'secondary'}` +
+      (deal.xref_cn_ref ? '; corroborated by official AidData record (+15)' : ''),
   };
 }
 

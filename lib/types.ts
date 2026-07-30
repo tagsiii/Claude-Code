@@ -118,6 +118,17 @@ export interface Deal {
   flag_us_positioning_reason?: string | null;
   flag_unpositioned_mdb?: boolean;
   flag_unpositioned_mdb_reason?: string | null;
+  // Data-quality vetting (quality.sql)
+  data_quality_grade?: 'A' | 'B' | 'C' | 'D' | null;
+  quality_components?: Record<string, unknown> | null;
+  independent_source_count?: number;
+  provenance?: Record<string, { source: string; date: string }> | null;
+  enrichment_details?: EnrichmentDetails | null;
+  review_status?: 'pending' | 'approved' | 'rejected';
+  review_note?: string | null;
+  xref_cn_ref?: string | null;
+  xref_note?: string | null;
+  last_corroborated_at?: string | null;
   // joined fields
   sources?: Source[];
   events?: DealEvent[];
@@ -194,7 +205,16 @@ export interface IngestResult {
   error?: string;
 }
 
+// Richer facts extracted from article bodies (enrichment pass).
+export interface EnrichmentDetails {
+  financing_structure?: { type?: string | null; details?: string | null } | null;
+  counterparties?: Array<{ name: string; role?: string | null; country?: string | null }> | null;
+  verification?: { is_genuine_deal?: boolean; confidence?: number; note?: string | null } | null;
+}
+
 export interface DashboardFilters {
+  // 'pending' shows the review queue; default hides pending + rejected.
+  review?: 'pending' | 'all';
   sector?: Sector | 'all';
   sponsoring_state?: string | 'all';
   lifecycle_stage?: LifecycleStage | 'all';

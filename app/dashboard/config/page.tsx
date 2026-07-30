@@ -1,6 +1,7 @@
 import { getScoreWeights, getConnectorConfigs, getRecentIngestLogs } from '@/lib/db/queries';
 import { ConfigPanel } from '@/components/ConfigPanel';
 import { EmailTestPanel } from '@/components/EmailTestPanel';
+import { DomainRulesPanel } from '@/components/DomainRulesPanel';
 import { isEmailAvailable } from '@/lib/email/client';
 
 export const dynamic = 'force-dynamic';
@@ -19,6 +20,7 @@ export default async function ConfigPage() {
         <p className="text-muted-foreground text-sm mt-1">Manage scoring weights, data connectors, and pipeline history.</p>
       </div>
       <EmailTestPanel configured={isEmailAvailable()} />
+      <DomainRulesPanel />
       <ConfigPanel weights={weights} connectors={connectors} logs={logs} />
     </div>
   );

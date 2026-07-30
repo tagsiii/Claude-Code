@@ -39,8 +39,12 @@ export const CN_POINT_COLOR: RGBA = [139, 92, 246, 190];
 export const US_POINT_COLOR: RGBA = [59, 130, 246, 200];
 export const US_LEADING_COLOR: RGBA = [14, 165, 233, 220]; // sky-500 — leading indicators pop
 export const FACILITY_COLOR: RGBA = [100, 116, 139, 140]; // slate-500, muted
-export const CABLE_COLOR: RGBA = [71, 85, 105, 160]; // slate-600
+export const CABLE_COLOR: RGBA = [71, 85, 105, 170]; // slate-600 (light theme core)
+export const CABLE_CORE_DARK: RGBA = [148, 184, 226, 210]; // luminous blue-grey on dark
+export const CABLE_HALO: RGBA = [100, 140, 200, 40]; // wide soft glow under the core line
 export const EEZ_LINE_COLOR: RGBA = [20, 184, 166, 90]; // teal-500, faint
+// Hover/selection accent — amber, like the reference infrastructure maps.
+export const HIGHLIGHT_COLOR: RGBA = [245, 158, 11, 220];
 
 export function cnRadiusPx(usd: number | null | undefined): number {
   if (!usd || usd <= 0) return 2.5;
